@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-
+import logo from "../Assets/Logo.png"
 
 const Login = () => {
   const [admissionNumber, setAdmissionNumber] = useState("");
@@ -19,12 +19,13 @@ const Login = () => {
   };
 
   return (
-    <div className="container">
+    <div className="login-container">
       {/* Left panel with logo and slogan */}
       <div className="left-panel">
-        <img src="/logo.png" alt="Elimu School Logo" />
+        
         <h1>ELIMU SCHOOL</h1>
-        <p>Clearly Different</p>
+        <img src={logo} alt="Elimu School Logo" />
+      
       </div>
 
       {/* Right panel with login form */}
@@ -46,6 +47,7 @@ const Login = () => {
             <input
               type="password"
               id="password"
+              placeholder="*****"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -53,7 +55,7 @@ const Login = () => {
 
             <a href="/forgot-password">Forgot password?</a>
 
-            <button type="submit">SIGN IN</button>
+            <button className="signin" type="submit">SIGN IN</button>
             <button
               type="button"
               className="reset-btn"

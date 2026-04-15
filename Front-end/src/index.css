@@ -1,17 +1,28 @@
 /* General page styling */
 body {
+  font-family: Arial, sans-serif;
   margin: 0;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: linear-gradient(135deg, #1e3c72, #2a5298);
-  color: #333;
+  padding: 0;
+  min-height: 100vh;
   display: flex;
-  height: 100vh;
+  justify-content: center;
+  align-items: center;
+  background-image: url("C:\Users\Administrator\Documents\GitHub\school-system\school-system\Front-end\src\Assets\Clean background wit.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* Container for logo and form */
-.container {
+.login-container {
   display: flex;
-  width: 100%;
+  flex-wrap: wrap; /* allows stacking on smaller screens */
+  background: #00BA86;
+  border: solid 1px #00BA86;
+  box-shadow: 5px 5px 2px rgba(0,0,0,0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  width: 700px;
 }
 
 /* Left side (logo + slogan) */
@@ -22,24 +33,20 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
+  padding: 10px;
   color: #fff;
-  text-align: center;
 }
 
 .left-panel img {
-  max-width: 200px;
+  max-width: 210px;
   margin-bottom: 20px;
 }
 
 .left-panel h1 {
-  font-size: 28px;
-  margin: 10px 0;
-}
-
-.left-panel p {
-  font-style: italic;
-  font-size: 16px;
+  justify-content: space-between;
+  font-size: 25px;
+  margin: 0;
+  font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 }
 
 /* Right side (login form) */
@@ -90,7 +97,7 @@ body {
   text-decoration: underline;
 }
 
-.login-box button {
+.signin{
   width: 100%;
   padding: 12px;
   background: #2a5298;
@@ -101,17 +108,23 @@ body {
   cursor: pointer;
 }
 
-.login-box button:hover {
-  background: #1e3c72;
+button.signin:hover {
+  background: #00BA86;
+  border: solid 0.5px #2a5298;
+  box-shadow: 0 0 10px #00f7ff, 0 0 20px #00f7ff; 
 }
 
-.login-box .reset-btn {
+.reset-btn {
   margin-top: 10px;
-  background: #ccc;
-  color: #333;
+  background: #00BA86;
+  color: red;
+  border: outset 0.2px black;
+  border-radius: 3px;
 }
 
-.login-box .reset-btn:hover {
-  background: #999;
+button.reset-btn:hover {
+  background: rgb(21, 141, 211);
+  border: 0.5px solid red;
+  color: black;
 }
 

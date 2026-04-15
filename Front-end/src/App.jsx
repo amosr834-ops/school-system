@@ -1,12 +1,12 @@
 import React from "react";
-import Login from "./components/Login";
+import PasswordReset from "./components/password";
 
 
 
 function App() {
   return (
     <>
-        <Login />
+        <PasswordReset />
     
     </>
   );

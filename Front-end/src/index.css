@@ -118,12 +118,13 @@ button.signin:hover {
   margin-top: 10px;
   background: #00BA86;
   color: red;
-  border: dashed 0.2px black;
-  border-radius: 1px;
+  border: outset 0.2px black;
+  border-radius: 3px;
 }
 
 button.reset-btn:hover {
   background: rgb(21, 141, 211);
   border: 0.5px solid red;
+  color: black;
 }
 

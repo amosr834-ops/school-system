@@ -3,7 +3,7 @@
     "axios": "^1.14.0",
     "cors": "^2.8.6",
     "express": "^5.2.1",
-    "react-router-dom": "^7.14.0"
+    "react-router-dom": "^7.14.1"
   },
   "name": "school-system",
   "version": "1.0.0",

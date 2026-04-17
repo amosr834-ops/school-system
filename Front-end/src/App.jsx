@@ -1,6 +1,6 @@
 import React from "react";
 import PasswordReset from "./components/password";
-import Login from "./components/Login"
+import Login from "./components/Login";
 
 
 

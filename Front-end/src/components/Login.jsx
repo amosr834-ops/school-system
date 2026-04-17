@@ -28,7 +28,7 @@ function Login() {
       console.log(response.data);
 
       // redirect after login
-      //window.location.href = "/dashboard";
+      window.location.href = "/dashboard";
     } else {
       alert(response.data.message);
     }

@@ -6,13 +6,37 @@ const Login = () => {
   const [admissionNumber, setAdmissionNumber] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // TODO: Replace with your authentication logic
-    console.log("Admission:", admissionNumber);
-    console.log("Password:", password);
-    alert("Login attempt submitted!");
-  };
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  try {
+    const response = await axios.post(
+      "",
+      {
+        admissionNumber: admissionNumber,
+        password: password,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.data.status === "success") {
+      alert("Login successful!");
+      console.log(response.data);
+
+      // redirect after login
+      window.location.href = "/dashboard";
+    } else {
+      alert(response.data.message);
+    }
+  } catch (error) {
+    console.error(error);
+    alert("Server error");
+  }
+};
 
   const handleReset = () => {
     setAdmissionNumber("");

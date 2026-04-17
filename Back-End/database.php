@@ -1,15 +1,17 @@
 <?php
-$serverName = "localhost";
-$userName = "root";
+$servername = "localhost";
+$username = "root";
 $password = "";
-$dbName = "elimumanagementsystem.sql";
+$dbname = "elimumanagementsystem.sql";
 
-try{
-    $conn = new mysqli($serverName, $userName, $password, $dbName);
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+
+if ($conn->connect_error) {
+    die("Database connection failed: " . $conn->connect_error);
 }
-catch{
-    
-}
+
 
 
 ?>

@@ -1,17 +1,21 @@
 <?php
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "elimumanagementsystem.sql";
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
+try {
+    $servername = "localhost";
+    $username = "root";
+    $password = "";
+    $dbname = "elimumanagementsystem.sql";
 
-$conn = new mysqli($servername, $username, $password, $dbname);
+    // Create connection
+    $conn = new mysqli($servername, $username, $password, $dbname);
 
+    ;
 
-if ($conn->connect_error) {
-    die("Database connection failed: " . $conn->connect_error);
+    echo "Connected successfully";
+
+} catch (Exception $e) {
+    echo "Connection failed: " . $e->getMessage();
 }
-
-
 
 ?>

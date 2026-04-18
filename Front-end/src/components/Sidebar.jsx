@@ -2,17 +2,13 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-
 function Sidebar() {
   const navigate = useNavigate();
 
   return (
-    <aside className="sidebar">
+    <div className="nav-container">
       <nav>
         <ul>
-          <li>
-            <button onClick={() => navigate("/")}>Dashboard</button>
-          </li>
           <li>
             <button onClick={() => navigate("/profile")}>Profile</button>
           </li>
@@ -33,7 +29,7 @@ function Sidebar() {
           </li>
         </ul>
       </nav>
-    </aside>
+    </div>
   );
 }
 

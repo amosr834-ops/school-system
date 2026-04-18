@@ -149,7 +149,7 @@ button.reset-btn:hover {
   padding-left: 40px;
 }
 .overhead header {
-  position: absolute;
+  position: fixed;
   height: 100px;
   top: 0px;
   left: 0;

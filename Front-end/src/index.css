@@ -180,8 +180,8 @@ button.reset-btn:hover {
 
 .overhead header button {
   background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);          
-  -webkit-backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);          
+  backdrop-filter: blur(20px);
   border: 1px solid  rgb(21, 141, 211);
   border-radius: 5px;
   color: #ff3333;
@@ -224,7 +224,7 @@ nav ul li button {
   border-radius: 5px;
   background-color: rgb(21, 141, 211);;
   width: 230px;
-  align-text: right;
+  align-self: right;
   color: white;
   cursor: pointer;
 }

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import logo from "../Assets/Logo.png"
+import Logo from "../Assets/Logo.png"
+import redcross from "../Assets/Red Cross, White Circle.jpg"
 
 function Navbar() {
 

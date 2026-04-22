@@ -173,8 +173,8 @@ button.reset-btn:hover {
   font-family: 'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
   margin-top: 4px;
   color: black;
-  padding-left: 550px;
-  padding-top: 20px;
+  padding-left: 450px;
+  padding-top: 1px;
 
 }
 
@@ -187,10 +187,12 @@ button.reset-btn:hover {
   color: #ff3333;
   position: absolute;
   right: 10px;
-  top: 40px;
+  top: 90px;
+  cursor: pointer;
 }
 .overhead header button:hover {
   background: #cc0000;
+  color: #fff;
 }
 
 /* Layout container */
@@ -248,11 +250,11 @@ main {
   background: rgb(21, 141, 211);
   border-radius: 8px;
   padding: 70px;
-  padding-right: 360px;
+  padding-right: 300px;
   max-width: 500px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   top: 200px;
-  left: 400px;
+  left: 300px;
   cursor: text;
 }
 
@@ -277,4 +279,68 @@ main {
 .profile-card strong {
   color: white;
   font-size: 14px;
+}
+
+.grades-card {
+  position: absolute;
+  background-color: rgb(21, 141, 211);
+  padding: 10px;
+  border:solid 2px #00BA86;
+  border-radius: 10px;
+  color: #fff;
+  top: 150px;
+  left: 300px;
+}
+/* Table styling */
+table {
+  width: 80%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  border: 3px solid #333;
+}
+
+table th, table td {
+  border: 1px solid #333;
+  padding-bottom: 5px;
+  padding-top: 5px;
+  text-align: center;
+}
+
+table th {
+  font-weight: bold;
+}
+
+/* Highlight performance levels */
+td:last-child {
+  font-style: italic;
+}
+
+/* Summary section */
+h3 {
+  margin-top: 20px;
+}
+
+p {
+  margin: 1px 0;
+}
+.academic-results {
+  font-family: Arial, sans-serif;
+  margin: 20px;
+}
+
+.summary {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1px;
+}
+
+.summary .column {
+  flex: 1;
+  padding: 1px;
+}
+.column p {
+  border-bottom: solid 2px #333;
+}
+.column strong {
+  text-decoration: none;
 }

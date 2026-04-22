@@ -5,17 +5,17 @@ import redcross from "../Assets/Red Cross, White Circle.jpg"
 function Navbar() {
 
     return (
- <>
-      
+    <>
         <div className="overhead">
-        <header>
+            <header>
             <div>
-            <h1>ELIMU SCHOOL STUDENTS MANAGEMENT SYSTEM</h1>
-            <p className="motto">Motto: Clearly Different</p>
+                <h1>ELIMU SCHOOL STUDENTS MANAGEMENT SYSTEM</h1>
+                <p className="motto">Motto: Clearly Different</p>
             </div>
-            <button>Log out</button>
-        </header>
-          <div className="nav-container">
+                <button>Log out</button>
+            </header>
+        </div>
+        <div className="nav-container">
             <nav>
             <ul>
                 <li><button>Profile</button></li>
@@ -26,11 +26,11 @@ function Navbar() {
                 <li><button>Co-Curricular</button></li>
             </ul>
             </nav>
-          <div className="Logobox">
+        <div className="Logobox">
             <img src={Logo} alt="Logo" />
         </div>
         </div>
-    </div>
+    
  </>
 
 

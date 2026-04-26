@@ -10,22 +10,22 @@ function Sidebar() {
       <nav>
         <ul>
           <li>
-            <button onClick={() => navigate("/profile")}>Profile</button>
+            <button onClick={() => navigate("/dashboard")}>Profile</button>
           </li>
           <li>
             <button onClick={() => navigate("/academic")}>Academic Performance</button>
           </li>
           <li>
-            <button onClick={() => navigate("/social-groups")}>Social Groups</button>
+            <button onClick={() => navigate("/dashboard")}>Social Groups</button>
           </li>
           <li>
-            <button onClick={() => navigate("/communities")}>Communities</button>
+            <button onClick={() => navigate("/dashboard")}>Communities</button>
           </li>
           <li>
-            <button onClick={() => navigate("/disciplinary")}>Disciplinary</button>
+            <button onClick={() => navigate("/dashboard")}>Disciplinary</button>
           </li>
           <li>
-            <button onClick={() => navigate("/co-curricular")}>Co-Curricular</button>
+            <button onClick={() => navigate("/dashboard")}>Co-Curricular</button>
           </li>
         </ul>
       </nav>

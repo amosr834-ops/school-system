@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import redcross from "../Assets/Red Cross, White Circle.jpg"
+import React from "react";
+import redcross from "../Assets/Red Cross, White Circle.jpg";
 
 function Profile() {
 
@@ -19,5 +19,5 @@ function Profile() {
            </main>
         </>
     );
-} 
+}
 export default Profile;

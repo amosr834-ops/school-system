@@ -1,42 +1,42 @@
 import React, { useState } from "react";
 import axios from "axios";
-import logo from "../Assets/Logo.png"
+import { useNavigate } from "react-router-dom";
+import logo from "../Assets/Logo.png";
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 function Login() {
   const [admissionNumber, setAdmissionNumber] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    const response = await axios.post(
-      "http://localhost/Back-End/Login.php",
-      {
-        admissionNumber: admissionNumber,
-        password: password,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/Login.php`,
+        {
+          admissionNumber,
+          password,
         },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.data.status === "success") {
+        navigate("/dashboard");
+      } else {
+        alert(response.data.message);
       }
-    );
-
-    if (response.data.status === "success") {
-      alert("Login successful!");
-      console.log(response.data);
-
-      // redirect after login
-      window.location.href = "/dashboard";
-    } else {
-      alert(response.data.message);
+    } catch (error) {
+      console.error(error);
+      alert("Server error");
     }
-  } catch (error) {
-    console.error(error);
-    alert("Server error");
-  }
-};
+  };
 
   const handleReset = () => {
     setAdmissionNumber("");
@@ -78,7 +78,7 @@ function Login() {
               required
             />
 
-            <a href="/forgot-password">Forgot password?</a>
+            <a href="/password">Forgot password?</a>
 
             <button className="signin" type="submit">SIGN IN</button>
             <button
@@ -93,6 +93,6 @@ function Login() {
       </div>
     </div>
   );
-};
+}
 
 export default Login;

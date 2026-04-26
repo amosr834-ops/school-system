@@ -1,115 +1,64 @@
-CREATE DATABASE IF NOT EXISTS elimumanagementsystem;
-USE elimumanagementsystem;
+CREATE DATABASE IF NOT EXISTS collaborative_tasks;
+USE collaborative_tasks;
 
--- ========================
--- STUDENTS TABLE (FIXED)
--- ========================
-CREATE TABLE students (
-  StudentID INT AUTO_INCREMENT PRIMARY KEY,
-  admission_number VARCHAR(50) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL,
-  FirstName VARCHAR(50) NOT NULL,
-  LastName VARCHAR(50) NOT NULL,
-  DateOfBirth DATE DEFAULT NULL,
-  Gender ENUM('M','F','O') DEFAULT NULL,
-  Email VARCHAR(100) UNIQUE,
-  Phone VARCHAR(15),
-  Address TEXT,
-  EnrollmentDate DATE DEFAULT CURRENT_DATE,
-  Status ENUM('Active','Inactive','Graduated') DEFAULT 'Active'
+CREATE TABLE IF NOT EXISTS users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  email VARCHAR(150) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ========================
--- SAMPLE LOGIN DATA
--- ========================
-INSERT INTO students (admission_number, password, FirstName, LastName)
-VALUES 
-('26/419', '12345', 'Elvis', 'Student'),
-('26/420', '12345', 'Test', 'User');
-
--- ========================
--- CLASSES TABLE
--- ========================
-CREATE TABLE classes (
-  ClassID INT AUTO_INCREMENT PRIMARY KEY,
-  ClassName VARCHAR(20) NOT NULL,
-  Section VARCHAR(5),
-  Capacity INT DEFAULT 40
+CREATE TABLE IF NOT EXISTS teams (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  owner_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-INSERT INTO classes (ClassName, Section) VALUES
-('Class 10', 'A'),
-('Class 10', 'B'),
-('Class 11', 'A');
-
--- ========================
--- SUBJECTS TABLE
--- ========================
-CREATE TABLE subjects (
-  SubjectID INT AUTO_INCREMENT PRIMARY KEY,
-  SubjectName VARCHAR(50) NOT NULL,
-  SubjectCode VARCHAR(10) UNIQUE,
-  Credits INT DEFAULT 3,
-  ClassID INT,
-  FOREIGN KEY (ClassID) REFERENCES classes(ClassID)
+CREATE TABLE IF NOT EXISTS team_members (
+  team_id INT NOT NULL,
+  user_id INT NOT NULL,
+  role ENUM('owner', 'member') DEFAULT 'member',
+  joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (team_id, user_id),
+  FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- ========================
--- STUDENT CLASS
--- ========================
-CREATE TABLE studentclass (
-  EnrollmentID INT AUTO_INCREMENT PRIMARY KEY,
-  StudentID INT,
-  ClassID INT,
-  EnrollmentDate DATE DEFAULT CURRENT_DATE,
-  Status ENUM('Enrolled','Dropped') DEFAULT 'Enrolled',
-  FOREIGN KEY (StudentID) REFERENCES students(StudentID),
-  FOREIGN KEY (ClassID) REFERENCES classes(ClassID)
+CREATE TABLE IF NOT EXISTS tasks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  description TEXT,
+  status ENUM('Todo', 'In Progress', 'Done') DEFAULT 'Todo',
+  priority ENUM('Low', 'Medium', 'High') DEFAULT 'Medium',
+  due_date DATE DEFAULT NULL,
+  created_by INT NOT NULL,
+  assignee_id INT DEFAULT NULL,
+  team_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (assignee_id) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 );
 
--- ========================
--- MARKS TABLE
--- ========================
-CREATE TABLE marks (
-  MarkID INT AUTO_INCREMENT PRIMARY KEY,
-  StudentID INT,
-  SubjectID INT,
-  ClassID INT,
-  ExamType ENUM('Midterm','Final','Quiz','Assignment'),
-  MarksObtained DECIMAL(5,2),
-  TotalMarks DECIMAL(5,2) DEFAULT 100.00,
-  Grade VARCHAR(5),
-  ExamDate DATE,
-  FOREIGN KEY (StudentID) REFERENCES students(StudentID),
-  FOREIGN KEY (SubjectID) REFERENCES subjects(SubjectID),
-  FOREIGN KEY (ClassID) REFERENCES classes(ClassID)
+CREATE TABLE IF NOT EXISTS task_comments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  task_id INT NOT NULL,
+  user_id INT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
--- ========================
--- ATTENDANCE TABLE
--- ========================
-CREATE TABLE attendance (
-  AttendanceID INT AUTO_INCREMENT PRIMARY KEY,
-  StudentID INT,
-  ClassID INT,
-  SubjectID INT,
-  AttendanceDate DATE,
-  Status ENUM('Present','Absent','Late') DEFAULT 'Present',
-  FOREIGN KEY (StudentID) REFERENCES students(StudentID),
-  FOREIGN KEY (ClassID) REFERENCES classes(ClassID),
-  FOREIGN KEY (SubjectID) REFERENCES subjects(SubjectID)
-);
-
--- ========================
--- FEES TABLE
--- ========================
-CREATE TABLE fees (
-  FeeID INT AUTO_INCREMENT PRIMARY KEY,
-  StudentID INT,
-  FeeType VARCHAR(50),
-  Amount DECIMAL(10,2),
-  DueDate DATE,
-  PaidDate DATE,
-  Status ENUM('Paid','Pending','Overdue') DEFAULT 'Pending',
-  FOREIGN KEY (StudentID) REFERENCES students(StudentID)
+CREATE TABLE IF NOT EXISTS notifications (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  message VARCHAR(255) NOT NULL,
+  is_read TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

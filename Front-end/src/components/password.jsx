@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import logo from "../Assets/Logo.png";
 
 function PasswordReset() {
@@ -6,6 +7,7 @@ function PasswordReset() {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const navigate = useNavigate();
 
   const handleSendCode = (e) => {
     e.preventDefault();
@@ -19,7 +21,7 @@ function PasswordReset() {
 
   const handleSetPassword = (e) => {
     e.preventDefault();
-    window.location.href = "/login";
+    navigate("/");
   };
 
   return (

@@ -1,62 +1,49 @@
 <?php
 require_once "database.php";
-require_once "Cors.php";
+require_once "utils.php";
+require_once "auth.php";
 
- 
-header("content-Type: application/json");
+$data = readJsonBody();
+$email = trim((string) ($data["email"] ?? ""));
+$password = (string) ($data["password"] ?? "");
 
-// Get JSON data from React
-$data = json_decode(file_get_contents("php://input"), true);
-
-// Validate input
-if (!isset($data['admissionNumber']) || !isset($data['password'])) {
-    echo json_encode([
+if ($email === "" || $password === "") {
+    respond(422, [
         "status" => "error",
-        "message" => "Missing admission number or password"
+        "message" => "Email and password are required"
     ]);
-    exit();
 }
 
-$admission = $data['admissionNumber'];
-$password = $data['password'];
-
-// Prepare statement
-$stmt = $conn->prepare("SELECT id, admission_number, password FROM students WHERE admission_number = ?");
-$stmt->bind_param("s", $admission);
+$stmt = $conn->prepare("SELECT id, name, email, password_hash FROM users WHERE email = ?");
+$stmt->bind_param("s", $email);
 $stmt->execute();
-
 $result = $stmt->get_result();
 
 if ($result->num_rows === 1) {
     $user = $result->fetch_assoc();
+    $passwordMatches = password_verify($password, $user["password_hash"]);
 
-    if ($password === $user['password']) {
-        echo json_encode([
+    if ($passwordMatches) {
+        $token = createToken((int) $user["id"], $user["email"]);
+        respond(200, [
             "status" => "success",
             "message" => "Login successful",
+            "token" => $token,
             "user" => [
-                "id" => $user['id'],
-                "admission_number" => $user['admission_number']
+                "id" => (int) $user["id"],
+                "name" => $user["name"],
+                "email" => $user["email"]
             ]
         ]);
-    } else {
-        echo json_encode([
-            "status" => "error",
-            "message" => "Invalid password"
-        ]);
     }
-} else {
-    echo json_encode([
-        "status" => "error",
-        "message" => "User not found"
-    ]);
 }
+
+respond(401, [
+    "status" => "error",
+    "message" => "Invalid credentials"
+]);
 
 $stmt->close();
 $conn->close();
 ?>
-
-
-
-
 

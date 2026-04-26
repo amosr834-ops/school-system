@@ -9,17 +9,34 @@ try {
     $password = DB_PASSWORD;
     $dbname = DB_NAME;
     $port = (int) DB_PORT;
+    $conn = mysqli_init();
 
-    // Create connection
-    $conn = new mysqli($servername, $username, $password, $dbname, $port);
-    $conn->set_charset("utf8mb4");
+    if ($conn === false) {
+        throw new RuntimeException("Failed to initialize mysqli.");
+    }
+
+    $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, max(1, DB_CONNECT_TIMEOUT));
+    $conn->real_connect($servername, $username, $password, $dbname, $port);
+    $conn->set_charset(DB_CHARSET);
 } catch (Exception $e) {
     http_response_code(500);
     header("Content-Type: application/json");
-    echo json_encode([
+    $payload = [
         "status" => "error",
         "message" => "Database connection failed"
-    ]);
+    ];
+
+    if (APP_DEBUG) {
+        $payload["details"] = $e->getMessage();
+        $payload["connection"] = [
+            "host" => DB_HOST,
+            "port" => (int) DB_PORT,
+            "database" => DB_NAME,
+            "user" => DB_USER
+        ];
+    }
+
+    echo json_encode($payload);
     exit();
 }
 

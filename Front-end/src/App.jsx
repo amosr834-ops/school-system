@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
@@ -41,23 +41,22 @@ function App() {
     [token]
   );
 
-  useEffect(() => {
-    if (!token) {
-      setUser(null);
-      return;
-    }
-    void loadDashboard();
-  }, [token]);
+  const handleApiError = useCallback((error, fallbackMessage) => {
+    const apiMessage = error?.response?.data?.message;
+    setMessage(apiMessage || fallbackMessage);
+  }, []);
 
-  useEffect(() => {
-    if (!selectedTaskId || !token) {
-      setComments([]);
-      return;
-    }
-    void loadComments(selectedTaskId);
-  }, [selectedTaskId, token]);
+  const logout = useCallback(() => {
+    localStorage.removeItem("token");
+    setToken("");
+    setTeams([]);
+    setTasks([]);
+    setNotifications([]);
+    setComments([]);
+    setSelectedTaskId(null);
+  }, []);
 
-  async function loadDashboard() {
+  const loadDashboard = useCallback(async () => {
     try {
       const [meRes, teamsRes, tasksRes, notificationsRes] = await Promise.all([
         api.get("/me.php", { headers: authHeaders }),
@@ -75,21 +74,30 @@ function App() {
       handleApiError(error, "Session expired. Please log in again.");
       logout();
     }
-  }
+  }, [authHeaders, handleApiError, logout]);
 
-  async function loadComments(taskId) {
+  const loadComments = useCallback(async (taskId) => {
     try {
       const response = await api.get(`/comments.php?taskId=${taskId}`, { headers: authHeaders });
       setComments(response.data.comments || []);
     } catch (error) {
       handleApiError(error, "Failed to load comments.");
     }
-  }
+  }, [authHeaders, handleApiError]);
 
-  function handleApiError(error, fallbackMessage) {
-    const apiMessage = error?.response?.data?.message;
-    setMessage(apiMessage || fallbackMessage);
-  }
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+    void loadDashboard();
+  }, [token, loadDashboard]);
+
+  useEffect(() => {
+    if (!selectedTaskId || !token) {
+      return;
+    }
+    void loadComments(selectedTaskId);
+  }, [selectedTaskId, token, loadComments]);
 
   async function handleAuthSubmit(event) {
     event.preventDefault();
@@ -109,16 +117,6 @@ function App() {
     } catch (error) {
       handleApiError(error, "Authentication failed.");
     }
-  }
-
-  function logout() {
-    localStorage.removeItem("token");
-    setToken("");
-    setTeams([]);
-    setTasks([]);
-    setNotifications([]);
-    setComments([]);
-    setSelectedTaskId(null);
   }
 
   async function createTeam(event) {

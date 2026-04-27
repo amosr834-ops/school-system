@@ -3,7 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
-const logo = "/Logo.png";
+const background = "/Clean background wit.png";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -12,7 +12,7 @@ function Login() {
   const loginBackgroundStyle = {
     minHeight: "100vh",
     display: "flex",
-    backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url(${logo})`,
+    backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url(${background})`,
     backgroundSize: "cover",
     backgroundPosition: "center",
     backgroundRepeat: "no-repeat",
@@ -60,7 +60,7 @@ function Login() {
       <div className="left-panel">
         
         <h1>ELIMU SCHOOL</h1>
-        <img src={logo} alt="Elimu School Logo" />
+        <img src={background} alt="Elimu School Logo" />
       
       </div>
 

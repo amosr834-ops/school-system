@@ -46,4 +46,3 @@ respond(401, [
 $stmt->close();
 $conn->close();
 ?>
-

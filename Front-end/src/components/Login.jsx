@@ -61,7 +61,7 @@ function Login() {
       <div className="left-panel">
         
         <h1>ELIMU SCHOOL</h1>
-        <img src={logo} alt="Elimu School Logo" />
+        <img src={background} alt="Elimu School Logo" />
       
       </div>
 

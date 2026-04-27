@@ -33,6 +33,12 @@ function App() {
     assigneeEmail: "",
   });
   const [commentBody, setCommentBody] = useState("");
+  const authBackgroundStyle = {
+    backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("/Logo.png")',
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+  };
 
   const authHeaders = useMemo(
     () => ({
@@ -235,7 +241,7 @@ function App() {
 
   if (!token) {
     return (
-      <main className="auth-page">
+      <main className="auth-page" style={authBackgroundStyle}>
         <section className="auth-card">
           <h1>Collaborative Task Management</h1>
           <p>Plan work, assign tasks, collaborate in teams, and track deadlines.</p>

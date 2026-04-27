@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import logo from "../Assets/Logo.png";
+import logo from "../assets/Logo.png";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 function Login() {
-  const [admissionNumber, setAdmissionNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
@@ -17,7 +17,7 @@ function Login() {
       const response = await axios.post(
         `${API_BASE_URL}/Login.php`,
         {
-          admissionNumber,
+          email,
           password,
         },
         {
@@ -28,6 +28,9 @@ function Login() {
       );
 
       if (response.data.status === "success") {
+        if (response.data.token) {
+          localStorage.setItem("token", response.data.token);
+        }
         navigate("/dashboard");
       } else {
         alert(response.data.message);
@@ -39,7 +42,7 @@ function Login() {
   };
 
   const handleReset = () => {
-    setAdmissionNumber("");
+    setEmail("");
     setPassword("");
   };
 
@@ -58,13 +61,13 @@ function Login() {
         <div className="login-box">
           <h2>Log in</h2>
           <form onSubmit={handleSubmit}>
-            <label htmlFor="admission">Admission number/TSC Number</label>
+            <label htmlFor="email">Email</label>
             <input
-              type="text"
-              id="admission"
-              value={admissionNumber}
-              onChange={(e) => setAdmissionNumber(e.target.value)}
-              placeholder="e.g. 26/419 or TSC12345"
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. alice.admin@school.local"
               required
             />
 

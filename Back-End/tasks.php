@@ -42,6 +42,7 @@ if ($method === "POST") {
     $dueDate = trim((string) ($data["dueDate"] ?? ""));
     $teamId = (int) ($data["teamId"] ?? 0);
     $assigneeEmail = trim((string) ($data["assigneeEmail"] ?? ""));
+    $dueDate = $dueDate === "" ? null : $dueDate;
 
     if ($title === "" || $teamId < 1) {
         respond(422, ["status" => "error", "message" => "Title and team are required"]);
@@ -68,19 +69,37 @@ if ($method === "POST") {
 
     $status = "Todo";
     if ($assigneeId === null) {
-        $stmt = $conn->prepare(
-            "INSERT INTO tasks (title, description, status, priority, due_date, created_by, assignee_id, team_id)
-             VALUES (?, ?, ?, ?, ?, ?, NULL, ?)"
-        );
-        $stmt->bind_param("sssssii", $title, $description, $status, $priority, $dueDate, $userId, $teamId);
-        $stmt->execute();
+        if ($dueDate === null) {
+            $stmt = $conn->prepare(
+                "INSERT INTO tasks (title, description, status, priority, due_date, created_by, assignee_id, team_id)
+                 VALUES (?, ?, ?, ?, NULL, ?, NULL, ?)"
+            );
+            $stmt->bind_param("ssssii", $title, $description, $status, $priority, $userId, $teamId);
+            $stmt->execute();
+        } else {
+            $stmt = $conn->prepare(
+                "INSERT INTO tasks (title, description, status, priority, due_date, created_by, assignee_id, team_id)
+                 VALUES (?, ?, ?, ?, ?, ?, NULL, ?)"
+            );
+            $stmt->bind_param("sssssii", $title, $description, $status, $priority, $dueDate, $userId, $teamId);
+            $stmt->execute();
+        }
     } else {
-        $stmt = $conn->prepare(
-            "INSERT INTO tasks (title, description, status, priority, due_date, created_by, assignee_id, team_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        );
-        $stmt->bind_param("sssssiii", $title, $description, $status, $priority, $dueDate, $userId, $assigneeId, $teamId);
-        $stmt->execute();
+        if ($dueDate === null) {
+            $stmt = $conn->prepare(
+                "INSERT INTO tasks (title, description, status, priority, due_date, created_by, assignee_id, team_id)
+                 VALUES (?, ?, ?, ?, NULL, ?, ?, ?)"
+            );
+            $stmt->bind_param("ssssiii", $title, $description, $status, $priority, $userId, $assigneeId, $teamId);
+            $stmt->execute();
+        } else {
+            $stmt = $conn->prepare(
+                "INSERT INTO tasks (title, description, status, priority, due_date, created_by, assignee_id, team_id)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            );
+            $stmt->bind_param("sssssiii", $title, $description, $status, $priority, $dueDate, $userId, $assigneeId, $teamId);
+            $stmt->execute();
+        }
     }
     $taskId = (int) $conn->insert_id;
 

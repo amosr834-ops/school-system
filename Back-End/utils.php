@@ -3,7 +3,16 @@ function readJsonBody(): array
 {
     $raw = file_get_contents("php://input");
     $decoded = json_decode($raw ?: "", true);
-    return is_array($decoded) ? $decoded : [];
+    if (is_array($decoded)) {
+        return $decoded;
+    }
+
+    // Fallback for form-urlencoded or multipart form submissions.
+    if (!empty($_POST) && is_array($_POST)) {
+        return $_POST;
+    }
+
+    return [];
 }
 
 function respond(int $statusCode, array $payload): void

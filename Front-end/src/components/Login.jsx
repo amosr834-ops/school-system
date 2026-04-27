@@ -9,6 +9,14 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const loginBackgroundStyle = {
+    minHeight: "100vh",
+    display: "flex",
+    backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)), url(${logo})`,
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -47,7 +55,7 @@ function Login() {
   };
 
   return (
-    <div className="login-container">
+    <div className="login-container" style={loginBackgroundStyle}>
       {/* Left panel with logo and slogan */}
       <div className="left-panel">
         

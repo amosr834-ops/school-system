@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import logo from "../assets/Logo.png";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
+const logo = "/Logo.png";
 
 function Login() {
   const [email, setEmail] = useState("");

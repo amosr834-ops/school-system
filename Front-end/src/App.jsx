@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 const roles = [
   { id: "student", label: "Student", helper: "Use your admission number or email" },
   { id: "lecturer", label: "Lecturer", helper: "Enter marks and view class progress" },
@@ -15,6 +16,7 @@ function App() {
   const [user, setUser] = useState(null);
   const [message, setMessage] = useState("");
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
+  const [registerForm, setRegisterForm] = useState({ name: "", email: "", admissionNumber: "", password: "" });
   const [resetForm, setResetForm] = useState({ identifier: "" });
   const [students, setStudents] = useState([]);
   const [marks, setMarks] = useState([]);
@@ -46,45 +48,21 @@ function App() {
   }, [supabaseClient]);
 
   const loadMarks = useCallback(async (profile) => {
-    if (!supabaseClient || !profile) return;
+    if (!profile) return;
 
-    const selectFields = `
-      id,
-      subject,
-      marks,
-      grade,
-      remarks,
-      updated_at,
-      student:profiles!student_marks_student_id_fkey(id, name, admission_number),
-      lecturer:profiles!student_marks_lecturer_id_fkey(name)
-    `;
-    let query = supabaseClient.from("student_marks").select(selectFields).order("subject", { ascending: true });
-
-    if (profile.role === "student") {
-      query = query.eq("student_id", profile.id);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    setMarks((data || []).map(normalizeMarkRecord));
-  }, [supabaseClient]);
+    const data = await apiRequest("marks.php");
+    setMarks((data.marks || []).map(normalizeMarkRecord));
+  }, []);
 
   const loadStudents = useCallback(async (profile) => {
-    if (!supabaseClient || !["admin", "lecturer"].includes(profile?.role)) {
+    if (!["admin", "lecturer"].includes(profile?.role)) {
       setStudents([]);
       return;
     }
 
-    const { data, error } = await supabaseClient
-      .from("profiles")
-      .select("id, name, email, admission_number")
-      .eq("role", "student")
-      .order("name", { ascending: true });
-
-    if (error) throw error;
-    setStudents(data || []);
-  }, [supabaseClient]);
+    const data = await apiRequest("marks.php?students=1");
+    setStudents(data.students || []);
+  }, []);
 
   const ensureProfile = useCallback(async (authUser, fallbackRole = "student") => {
     const { data, error } = await supabaseClient
@@ -119,10 +97,10 @@ function App() {
   }, [supabaseClient]);
 
   const loadSchoolData = useCallback(async (authUser, fallbackRole = activeRole) => {
-    if (!supabaseClient || !authUser) return;
+    if (!authUser) return;
 
     try {
-      const profile = await ensureProfile(authUser, fallbackRole);
+      const profile = authUser.role ? authUser : await ensureProfile(authUser, fallbackRole);
       localStorage.removeItem("pendingRole");
       setUser(profile);
       setActiveRole(profile.role || "student");
@@ -130,10 +108,21 @@ function App() {
       setMessage("");
     } catch (error) {
       showError(error, "Failed to load your school profile.");
-      await supabaseClient.auth.signOut();
+      if (supabaseClient) {
+        await supabaseClient.auth.signOut();
+      }
       setUser(null);
     }
   }, [activeRole, ensureProfile, loadMarks, loadStudents, showError, supabaseClient]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token || user) return;
+
+    apiRequest("me.php")
+      .then((data) => loadSchoolData(data.user))
+      .catch(() => localStorage.removeItem("token"));
+  }, [loadSchoolData, user]);
 
   useEffect(() => {
     if (!supabaseClient) return undefined;
@@ -175,24 +164,46 @@ function App() {
 
   async function handleLogin(event) {
     event.preventDefault();
-    if (!supabaseClient) {
-      setMessage("Add Supabase URL and anon key to enable login.");
-      return;
-    }
 
     try {
-      const email = await resolveEmail(loginForm.identifier, activeRole);
-      localStorage.setItem("pendingRole", activeRole);
-      const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password: loginForm.password,
+      const data = await apiRequest("Login.php", {
+        method: "POST",
+        body: {
+          identifier: loginForm.identifier,
+          role: activeRole,
+          password: loginForm.password,
+        },
       });
 
-      if (error) throw error;
+      localStorage.setItem("token", data.token);
       setLoginForm({ identifier: "", password: "" });
       await loadSchoolData(data.user, activeRole);
     } catch (error) {
       showError(error, "Login failed.");
+    }
+  }
+
+  async function handleRegister(event) {
+    event.preventDefault();
+
+    try {
+      const data = await apiRequest("register.php", {
+        method: "POST",
+        body: {
+          name: registerForm.name,
+          email: registerForm.email,
+          admissionNumber: registerForm.admissionNumber,
+          role: activeRole,
+          password: registerForm.password,
+        },
+      });
+
+      localStorage.setItem("token", data.token);
+      setRegisterForm({ name: "", email: "", admissionNumber: "", password: "" });
+      setLoginForm({ identifier: data.user.email, password: "" });
+      await loadSchoolData(data.user, activeRole);
+    } catch (error) {
+      showError(error, "Account creation failed.");
     }
   }
 
@@ -238,6 +249,7 @@ function App() {
       await supabaseClient.auth.signOut();
     }
     localStorage.removeItem("pendingRole");
+    localStorage.removeItem("token");
     setUser(null);
     setStudents([]);
     setMarks([]);
@@ -247,21 +259,15 @@ function App() {
   async function saveMarks(event) {
     event.preventDefault();
     try {
-      const { data, error } = await supabaseClient
-        .from("student_marks")
-        .upsert(
-          {
-            student_id: markForm.studentId,
-            lecturer_id: user.id,
-            subject: markForm.subject,
-            marks: Number(markForm.marks),
-          },
-          { onConflict: "student_id,subject" }
-        )
-        .select("grade, remarks")
-        .single();
+      const data = await apiRequest("marks.php", {
+        method: "POST",
+        body: {
+          studentId: markForm.studentId,
+          subject: markForm.subject,
+          marks: Number(markForm.marks),
+        },
+      });
 
-      if (error) throw error;
       setMarkForm({ studentId: "", subject: "", marks: "" });
       await loadMarks(user);
       setMessage(`Marks saved. Grade: ${data.grade} (${data.remarks}).`);
@@ -297,6 +303,9 @@ function App() {
             <button type="button" className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>
               Login
             </button>
+            <button type="button" className={authMode === "register" ? "active" : ""} onClick={() => setAuthMode("register")}>
+              Create Account
+            </button>
             <button type="button" className={authMode === "reset" ? "active" : ""} onClick={() => setAuthMode("reset")}>
               Reset Password
             </button>
@@ -323,6 +332,48 @@ function App() {
               />
               <button type="submit">Sign In</button>
             </form>
+          ) : authMode === "register" ? (
+            <form onSubmit={handleRegister} className="stack">
+              <h2>Create {selectedRole.label} Account</h2>
+              <label htmlFor="registerName">Full name</label>
+              <input
+                id="registerName"
+                value={registerForm.name}
+                onChange={(event) => setRegisterForm({ ...registerForm, name: event.target.value })}
+                placeholder="Jane Student"
+                required
+              />
+              <label htmlFor="registerEmail">Email</label>
+              <input
+                id="registerEmail"
+                type="email"
+                value={registerForm.email}
+                onChange={(event) => setRegisterForm({ ...registerForm, email: event.target.value })}
+                placeholder="jane@student.local"
+                required
+              />
+              {activeRole === "student" && (
+                <>
+                  <label htmlFor="registerAdmission">Admission number</label>
+                  <input
+                    id="registerAdmission"
+                    value={registerForm.admissionNumber}
+                    onChange={(event) => setRegisterForm({ ...registerForm, admissionNumber: event.target.value })}
+                    placeholder="20/194"
+                  />
+                </>
+              )}
+              <label htmlFor="registerPassword">Password</label>
+              <input
+                id="registerPassword"
+                type="password"
+                value={registerForm.password}
+                onChange={(event) => setRegisterForm({ ...registerForm, password: event.target.value })}
+                minLength={6}
+                required
+              />
+              <button type="submit">Create Account</button>
+            </form>
           ) : (
             <form onSubmit={handleReset} className="stack">
               <h2>Reset {selectedRole.label} Password</h2>
@@ -337,7 +388,7 @@ function App() {
             </form>
           )}
 
-          {authMode === "login" && (
+          {authMode === "login" && supabaseClient && (
             <div className="google-login">
               <div className="divider"><span>or</span></div>
               <button type="button" className="google-button native-google" onClick={handleGoogleLogin}>
@@ -346,9 +397,6 @@ function App() {
             </div>
           )}
 
-          {(!supabaseUrl || !supabaseAnonKey) && (
-            <p className="notice">Add Supabase environment variables to connect this deployment.</p>
-          )}
           {message && <p className="notice">{message}</p>}
         </section>
       </main>
@@ -488,10 +536,32 @@ function normalizeMarkRecord(record) {
     marks: record.marks,
     grade: record.grade,
     remarks: record.remarks,
-    student_name: record.student?.name,
-    admission_number: record.student?.admission_number,
-    lecturer_name: record.lecturer?.name || "School staff",
+    student_name: record.student?.name || record.student_name,
+    admission_number: record.student?.admission_number || record.admission_number,
+    lecturer_name: record.lecturer?.name || record.lecturer_name || "School staff",
   };
+}
+
+async function apiRequest(path, options = {}) {
+  const token = localStorage.getItem("token");
+  const headers = {
+    Accept: "application/json",
+    ...(options.body ? { "Content-Type": "application/json" } : {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const response = await fetch(`${API_BASE_URL}/${path}`, {
+    method: options.method || "GET",
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.status === "error") {
+    throw new Error(data.message || "Request failed.");
+  }
+
+  return data;
 }
 
 function dashboardTitle(role) {

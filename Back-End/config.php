@@ -79,6 +79,8 @@ define("DB_CHARSET", envValue("DB_CHARSET", "utf8mb4"));
 define("DB_CONNECT_TIMEOUT", (int) envValue("DB_CONNECT_TIMEOUT", "5"));
 define("APP_ENV", envValue("APP_ENV", "development"));
 define("APP_DEBUG", filter_var(envValue("APP_DEBUG", APP_ENV === "production" ? "0" : "1"), FILTER_VALIDATE_BOOL));
+define("DB_AUTO_MIGRATE", filter_var(envValue("DB_AUTO_MIGRATE", "0"), FILTER_VALIDATE_BOOL));
 define("JWT_SECRET", envValue("JWT_SECRET", "change-me-in-production"));
 define("TOKEN_TTL_SECONDS", (int) envValue("TOKEN_TTL_SECONDS", "86400"));
+define("GOOGLE_CLIENT_ID", envValue("GOOGLE_CLIENT_ID", ""));
 ?>

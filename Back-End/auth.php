@@ -18,13 +18,14 @@ function base64UrlDecode(string $data): string
     return base64_decode(strtr($data, "-_", "+/")) ?: "";
 }
 
-function createToken(int $userId, string $email): string
+function createToken(int $userId, string $email, string $role = "student"): string
 {
     $header = ["alg" => "HS256", "typ" => "JWT"];
     $now = time();
     $payload = [
         "sub" => $userId,
         "email" => $email,
+        "role" => normalizeRole($role),
         "iat" => $now,
         "exp" => $now + TOKEN_TTL_SECONDS
     ];
@@ -34,6 +35,11 @@ function createToken(int $userId, string $email): string
     $signature = hash_hmac("sha256", $headerEncoded . "." . $payloadEncoded, JWT_SECRET, true);
 
     return $headerEncoded . "." . $payloadEncoded . "." . base64UrlEncode($signature);
+}
+
+function normalizeRole(string $role): string
+{
+    return in_array($role, ["admin", "lecturer", "student"], true) ? $role : "student";
 }
 
 function parseAuthorizationHeader(): string

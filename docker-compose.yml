@@ -30,6 +30,7 @@ services:
       DB_NAME: ${MYSQL_DATABASE:-collaborative_tasks}
       DB_USER: root
       DB_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
 
   frontend:
     build:
@@ -37,6 +38,9 @@ services:
       dockerfile: Front-end/Dockerfile
       args:
         VITE_API_BASE_URL: /api
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID:-}
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:-}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:-}
     container_name: school_frontend
     restart: unless-stopped
     depends_on:

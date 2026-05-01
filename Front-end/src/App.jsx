@@ -1,292 +1,354 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import axios from "axios";
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "/api";
-
-const api = axios.create({
-  baseURL: apiBaseUrl,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const roles = [
+  { id: "student", label: "Student", helper: "Use your admission number or email" },
+  { id: "lecturer", label: "Lecturer", helper: "Enter marks and view class progress" },
+  { id: "admin", label: "Admin", helper: "Manage the whole school view" },
+];
 
 function App() {
-  const [mode, setMode] = useState("login");
-  const [token, setToken] = useState(localStorage.getItem("token") || "");
+  const [supabaseClient, setSupabaseClient] = useState(null);
+  const [activeRole, setActiveRole] = useState("student");
+  const [authMode, setAuthMode] = useState("login");
   const [user, setUser] = useState(null);
-  const [teams, setTeams] = useState([]);
-  const [tasks, setTasks] = useState([]);
-  const [notifications, setNotifications] = useState([]);
-  const [comments, setComments] = useState([]);
-  const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [message, setMessage] = useState("");
+  const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
+  const [resetForm, setResetForm] = useState({ identifier: "" });
+  const [students, setStudents] = useState([]);
+  const [marks, setMarks] = useState([]);
+  const [markForm, setMarkForm] = useState({ studentId: "", subject: "", marks: "" });
 
-  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
-  const [teamName, setTeamName] = useState("");
-  const [memberForm, setMemberForm] = useState({ teamId: "", email: "" });
-  const [taskForm, setTaskForm] = useState({
-    title: "",
-    description: "",
-    teamId: "",
-    priority: "Medium",
-    dueDate: "",
-    assigneeEmail: "",
-  });
-  const [commentBody, setCommentBody] = useState("");
-  const authBackgroundStyle = {
-    backgroundImage: 'linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url("/background.png")',
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",
-  };
+  const selectedRole = roles.find((role) => role.id === activeRole);
+  const canManageMarks = useMemo(() => ["admin", "lecturer"].includes(user?.role), [user?.role]);
+  const averageMark = useMemo(() => averageMarks(marks), [marks]);
+  const trackedCount = canManageMarks ? students.length : marks.length;
 
-  const authHeaders = useMemo(
-    () => ({
-      Authorization: `Bearer ${token}`,
-    }),
-    [token]
-  );
-
-  const handleApiError = useCallback((error, fallbackMessage) => {
-    const apiMessage = error?.response?.data?.message;
-    setMessage(apiMessage || fallbackMessage);
+  const showError = useCallback((error, fallbackMessage) => {
+    setMessage(error?.message || fallbackMessage);
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem("token");
-    setToken("");
-    setTeams([]);
-    setTasks([]);
-    setNotifications([]);
-    setComments([]);
-    setSelectedTaskId(null);
-  }, []);
-
-  const loadDashboard = useCallback(async () => {
-    try {
-      const [meRes, teamsRes, tasksRes, notificationsRes] = await Promise.all([
-        api.get("/me.php", { headers: authHeaders }),
-        api.get("/teams.php", { headers: authHeaders }),
-        api.get("/tasks.php", { headers: authHeaders }),
-        api.get("/notifications.php", { headers: authHeaders }),
-      ]);
-
-      setUser(meRes.data.user);
-      setTeams(teamsRes.data.teams || []);
-      setTasks(tasksRes.data.tasks || []);
-      setNotifications(notificationsRes.data.notifications || []);
-      setMessage("");
-    } catch (error) {
-      handleApiError(error, "Session expired. Please log in again.");
-      logout();
-    }
-  }, [authHeaders, handleApiError, logout]);
-
-  const loadComments = useCallback(async (taskId) => {
-    try {
-      const response = await api.get(`/comments.php?taskId=${taskId}`, { headers: authHeaders });
-      setComments(response.data.comments || []);
-    } catch (error) {
-      handleApiError(error, "Failed to load comments.");
-    }
-  }, [authHeaders, handleApiError]);
-
   useEffect(() => {
-    if (!token) {
+    if (!supabaseUrl || !supabaseAnonKey || supabaseClient) {
+      return undefined;
+    }
+
+    const connect = () => {
+      if (window.supabase?.createClient) {
+        setSupabaseClient(window.supabase.createClient(supabaseUrl, supabaseAnonKey));
+      }
+    };
+
+    connect();
+    const timer = window.setInterval(connect, 250);
+    return () => window.clearInterval(timer);
+  }, [supabaseClient]);
+
+  const loadMarks = useCallback(async (profile) => {
+    if (!supabaseClient || !profile) return;
+
+    const selectFields = `
+      id,
+      subject,
+      marks,
+      grade,
+      remarks,
+      updated_at,
+      student:profiles!student_marks_student_id_fkey(id, name, admission_number),
+      lecturer:profiles!student_marks_lecturer_id_fkey(name)
+    `;
+    let query = supabaseClient.from("student_marks").select(selectFields).order("subject", { ascending: true });
+
+    if (profile.role === "student") {
+      query = query.eq("student_id", profile.id);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    setMarks((data || []).map(normalizeMarkRecord));
+  }, [supabaseClient]);
+
+  const loadStudents = useCallback(async (profile) => {
+    if (!supabaseClient || !["admin", "lecturer"].includes(profile?.role)) {
+      setStudents([]);
       return;
     }
-    void loadDashboard();
-  }, [token, loadDashboard]);
 
-  useEffect(() => {
-    if (!selectedTaskId || !token) {
-      return;
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .select("id, name, email, admission_number")
+      .eq("role", "student")
+      .order("name", { ascending: true });
+
+    if (error) throw error;
+    setStudents(data || []);
+  }, [supabaseClient]);
+
+  const ensureProfile = useCallback(async (authUser, fallbackRole = "student") => {
+    const { data, error } = await supabaseClient
+      .from("profiles")
+      .select("id, name, email, admission_number, role")
+      .eq("id", authUser.id)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data) return data;
+
+    const requestedRole = localStorage.getItem("pendingRole") || fallbackRole;
+    if (requestedRole !== "student") {
+      throw new Error("This account must be added by an admin before using this role.");
     }
-    void loadComments(selectedTaskId);
-  }, [selectedTaskId, token, loadComments]);
 
-  async function handleAuthSubmit(event) {
-    event.preventDefault();
+    const profile = {
+      id: authUser.id,
+      name: authUser.user_metadata?.full_name || authUser.email,
+      email: authUser.email,
+      role: "student",
+    };
+
+    const { data: createdProfile, error: createError } = await supabaseClient
+      .from("profiles")
+      .insert(profile)
+      .select("id, name, email, admission_number, role")
+      .single();
+
+    if (createError) throw createError;
+    return createdProfile;
+  }, [supabaseClient]);
+
+  const loadSchoolData = useCallback(async (authUser, fallbackRole = activeRole) => {
+    if (!supabaseClient || !authUser) return;
+
     try {
-      const endpoint = mode === "register" ? "/register.php" : "/Login.php";
-      const payload =
-        mode === "register"
-          ? authForm
-          : { email: authForm.email, password: authForm.password };
-
-      const response = await api.post(endpoint, payload);
-      const newToken = response.data.token;
-      localStorage.setItem("token", newToken);
-      setToken(newToken);
-      setAuthForm({ name: "", email: "", password: "" });
+      const profile = await ensureProfile(authUser, fallbackRole);
+      localStorage.removeItem("pendingRole");
+      setUser(profile);
+      setActiveRole(profile.role || "student");
+      await Promise.all([loadMarks(profile), loadStudents(profile)]);
       setMessage("");
     } catch (error) {
-      handleApiError(error, "Authentication failed.");
+      showError(error, "Failed to load your school profile.");
+      await supabaseClient.auth.signOut();
+      setUser(null);
     }
+  }, [activeRole, ensureProfile, loadMarks, loadStudents, showError, supabaseClient]);
+
+  useEffect(() => {
+    if (!supabaseClient) return undefined;
+
+    let active = true;
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (active && data.session?.user) {
+        void loadSchoolData(data.session.user);
+      }
+    });
+
+    const { data: listener } = supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        void loadSchoolData(session.user);
+      }
+      if (event === "SIGNED_OUT") {
+        setUser(null);
+        setStudents([]);
+        setMarks([]);
+      }
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [loadSchoolData, supabaseClient]);
+
+  async function resolveEmail(identifier, role) {
+    const { data, error } = await supabaseClient.rpc("resolve_login_identifier", {
+      login_identifier: identifier,
+      selected_role: role,
+    });
+
+    if (error) throw error;
+    if (!data) throw new Error("No matching account found for that role.");
+    return data;
   }
 
-  async function createTeam(event) {
+  async function handleLogin(event) {
     event.preventDefault();
-    try {
-      await api.post(
-        "/teams.php",
-        { action: "create", name: teamName },
-        { headers: authHeaders }
-      );
-      setTeamName("");
-      await loadDashboard();
-      setMessage("Team created.");
-    } catch (error) {
-      handleApiError(error, "Failed to create team.");
+    if (!supabaseClient) {
+      setMessage("Add Supabase URL and anon key to enable login.");
+      return;
     }
-  }
 
-  async function addMember(event) {
-    event.preventDefault();
     try {
-      await api.post(
-        "/teams.php",
-        {
-          action: "add_member",
-          teamId: Number(memberForm.teamId),
-          email: memberForm.email,
-        },
-        { headers: authHeaders }
-      );
-      setMemberForm({ teamId: "", email: "" });
-      setMessage("Member added.");
-    } catch (error) {
-      handleApiError(error, "Failed to add member.");
-    }
-  }
-
-  async function createTask(event) {
-    event.preventDefault();
-    try {
-      await api.post(
-        "/tasks.php",
-        {
-          ...taskForm,
-          teamId: Number(taskForm.teamId),
-        },
-        { headers: authHeaders }
-      );
-      setTaskForm({
-        title: "",
-        description: "",
-        teamId: "",
-        priority: "Medium",
-        dueDate: "",
-        assigneeEmail: "",
+      const email = await resolveEmail(loginForm.identifier, activeRole);
+      localStorage.setItem("pendingRole", activeRole);
+      const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password: loginForm.password,
       });
-      await loadDashboard();
-      setMessage("Task created.");
+
+      if (error) throw error;
+      setLoginForm({ identifier: "", password: "" });
+      await loadSchoolData(data.user, activeRole);
     } catch (error) {
-      handleApiError(error, "Failed to create task.");
+      showError(error, "Login failed.");
     }
   }
 
-  async function updateTask(task) {
-    try {
-      await api.put(
-        "/tasks.php",
-        {
-          taskId: Number(task.id),
-          status: task.status,
-          priority: task.priority,
-          dueDate: task.due_date || "",
-        },
-        { headers: authHeaders }
-      );
-      setMessage("Task updated.");
-      await loadDashboard();
-    } catch (error) {
-      handleApiError(error, "Failed to update task.");
-    }
-  }
-
-  async function addComment(event) {
+  async function handleReset(event) {
     event.preventDefault();
-    if (!selectedTaskId) return;
+    if (!supabaseClient) {
+      setMessage("Add Supabase URL and anon key to enable password reset.");
+      return;
+    }
 
     try {
-      await api.post(
-        "/comments.php",
-        {
-          taskId: selectedTaskId,
-          body: commentBody,
-        },
-        { headers: authHeaders }
-      );
-      setCommentBody("");
-      await loadComments(selectedTaskId);
-      await loadDashboard();
+      const email = await resolveEmail(resetForm.identifier, activeRole);
+      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+      });
+
+      if (error) throw error;
+      setAuthMode("login");
+      setResetForm({ identifier: "" });
+      setMessage("Password reset email sent. Check your inbox.");
     } catch (error) {
-      handleApiError(error, "Failed to add comment.");
+      showError(error, "Password reset failed.");
     }
   }
 
-  async function markNotificationRead(notificationId) {
+  async function handleGoogleLogin() {
+    if (!supabaseClient) {
+      setMessage("Add Supabase URL and anon key to enable Google login.");
+      return;
+    }
+
+    localStorage.setItem("pendingRole", activeRole);
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+
+    if (error) showError(error, "Google login failed.");
+  }
+
+  async function logout() {
+    if (supabaseClient) {
+      await supabaseClient.auth.signOut();
+    }
+    localStorage.removeItem("pendingRole");
+    setUser(null);
+    setStudents([]);
+    setMarks([]);
+    setMessage("");
+  }
+
+  async function saveMarks(event) {
+    event.preventDefault();
     try {
-      await api.post(
-        "/notifications.php",
-        { notificationId },
-        { headers: authHeaders }
-      );
-      await loadDashboard();
+      const { data, error } = await supabaseClient
+        .from("student_marks")
+        .upsert(
+          {
+            student_id: markForm.studentId,
+            lecturer_id: user.id,
+            subject: markForm.subject,
+            marks: Number(markForm.marks),
+          },
+          { onConflict: "student_id,subject" }
+        )
+        .select("grade, remarks")
+        .single();
+
+      if (error) throw error;
+      setMarkForm({ studentId: "", subject: "", marks: "" });
+      await loadMarks(user);
+      setMessage(`Marks saved. Grade: ${data.grade} (${data.remarks}).`);
     } catch (error) {
-      handleApiError(error, "Failed to update notification.");
+      showError(error, "Failed to save marks.");
     }
   }
 
-  if (!token) {
+  if (!user) {
     return (
-      <main className="auth-page" style={authBackgroundStyle}>
-        <section className="auth-card">
-          <h1>Collaborative Task Management</h1>
-          <p>Plan work, assign tasks, collaborate in teams, and track deadlines.</p>
-          <div className="mode-toggle">
-            <button
-              className={mode === "login" ? "active" : ""}
-              onClick={() => setMode("login")}
-              type="button"
-            >
+      <main className="auth-page">
+        <section className="brand-panel">
+          <img src="/Logo.png" alt="Elimu School" />
+          <h1>Elimu School Management System</h1>
+          <p>{selectedRole.helper}</p>
+        </section>
+
+        <section className="auth-panel">
+          <div className="role-tabs" aria-label="Login role">
+            {roles.map((role) => (
+              <button
+                key={role.id}
+                type="button"
+                className={activeRole === role.id ? "active" : ""}
+                onClick={() => setActiveRole(role.id)}
+              >
+                {role.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mode-tabs">
+            <button type="button" className={authMode === "login" ? "active" : ""} onClick={() => setAuthMode("login")}>
               Login
             </button>
-            <button
-              className={mode === "register" ? "active" : ""}
-              onClick={() => setMode("register")}
-              type="button"
-            >
-              Register
+            <button type="button" className={authMode === "reset" ? "active" : ""} onClick={() => setAuthMode("reset")}>
+              Reset Password
             </button>
           </div>
-          <form onSubmit={handleAuthSubmit}>
-            {mode === "register" && (
+
+          {authMode === "login" ? (
+            <form onSubmit={handleLogin} className="stack">
+              <h2>{selectedRole.label} Login</h2>
+              <label htmlFor="identifier">{activeRole === "student" ? "Admission number or email" : "Email"}</label>
               <input
-                type="text"
-                placeholder="Full name"
-                value={authForm.name}
-                onChange={(e) => setAuthForm({ ...authForm, name: e.target.value })}
+                id="identifier"
+                value={loginForm.identifier}
+                onChange={(event) => setLoginForm({ ...loginForm, identifier: event.target.value })}
+                placeholder={activeRole === "student" ? "20/194" : `${activeRole}@school.local`}
                 required
               />
-            )}
-            <input
-              type="email"
-              placeholder="Email"
-              value={authForm.email}
-              onChange={(e) => setAuthForm({ ...authForm, email: e.target.value })}
-              required
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={authForm.password}
-              onChange={(e) => setAuthForm({ ...authForm, password: e.target.value })}
-              required
-            />
-            <button type="submit">{mode === "register" ? "Create Account" : "Sign In"}</button>
-          </form>
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                value={loginForm.password}
+                onChange={(event) => setLoginForm({ ...loginForm, password: event.target.value })}
+                required
+              />
+              <button type="submit">Sign In</button>
+            </form>
+          ) : (
+            <form onSubmit={handleReset} className="stack">
+              <h2>Reset {selectedRole.label} Password</h2>
+              <label htmlFor="resetIdentifier">{activeRole === "student" ? "Admission number or email" : "Email"}</label>
+              <input
+                id="resetIdentifier"
+                value={resetForm.identifier}
+                onChange={(event) => setResetForm({ identifier: event.target.value })}
+                required
+              />
+              <button type="submit">Send Reset Link</button>
+            </form>
+          )}
+
+          {authMode === "login" && (
+            <div className="google-login">
+              <div className="divider"><span>or</span></div>
+              <button type="button" className="google-button native-google" onClick={handleGoogleLogin}>
+                Continue with Google
+              </button>
+            </div>
+          )}
+
+          {(!supabaseUrl || !supabaseAnonKey) && (
+            <p className="notice">Add Supabase environment variables to connect this deployment.</p>
+          )}
           {message && <p className="notice">{message}</p>}
         </section>
       </main>
@@ -297,235 +359,151 @@ function App() {
     <main className="dashboard">
       <header className="topbar">
         <div>
-          <h1>Team Workspace</h1>
-          <p>{user ? `${user.name} (${user.email})` : "Loading profile..."}</p>
+          <p className="eyebrow">{user.role}</p>
+          <h1>{dashboardTitle(user.role)}</h1>
+          <p>
+            {user.name} | {user.email}
+            {user.admission_number ? ` | Adm: ${user.admission_number}` : ""}
+          </p>
         </div>
-        <button onClick={logout} type="button">
-          Logout
-        </button>
+        <button type="button" onClick={logout}>Logout</button>
       </header>
 
       {message && <p className="notice">{message}</p>}
 
-      <section className="panel-grid">
-        <article className="panel">
-          <h2>Teams</h2>
-          <form onSubmit={createTeam} className="stack">
-            <input
-              type="text"
-              placeholder="New team name"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              required
-            />
-            <button type="submit">Create Team</button>
-          </form>
-          <form onSubmit={addMember} className="stack compact">
-            <select
-              value={memberForm.teamId}
-              onChange={(e) => setMemberForm({ ...memberForm, teamId: e.target.value })}
-              required
-            >
-              <option value="">Select team</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-            <input
-              type="email"
-              placeholder="Member email"
-              value={memberForm.email}
-              onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
-              required
-            />
-            <button type="submit">Add Member</button>
-          </form>
-          <ul>
-            {teams.map((team) => (
-              <li key={team.id}>
-                {team.name} {Number(team.owner_id) === Number(user?.id) ? "(Owner)" : ""}
-              </li>
-            ))}
-          </ul>
+      <section className="summary-grid">
+        <article>
+          <strong>{trackedCount}</strong>
+          <span>{canManageMarks ? "Students tracked" : "Subjects graded"}</span>
         </article>
-
-        <article className="panel">
-          <h2>Create Task</h2>
-          <form onSubmit={createTask} className="stack">
-            <input
-              type="text"
-              placeholder="Task title"
-              value={taskForm.title}
-              onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-              required
-            />
-            <textarea
-              placeholder="Task description"
-              value={taskForm.description}
-              onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-            />
-            <select
-              value={taskForm.teamId}
-              onChange={(e) => setTaskForm({ ...taskForm, teamId: e.target.value })}
-              required
-            >
-              <option value="">Select team</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={taskForm.priority}
-              onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value })}
-            >
-              <option value="Low">Low Priority</option>
-              <option value="Medium">Medium Priority</option>
-              <option value="High">High Priority</option>
-            </select>
-            <input
-              type="date"
-              value={taskForm.dueDate}
-              onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
-            />
-            <input
-              type="email"
-              placeholder="Assignee email (optional)"
-              value={taskForm.assigneeEmail}
-              onChange={(e) => setTaskForm({ ...taskForm, assigneeEmail: e.target.value })}
-            />
-            <button type="submit">Create Task</button>
-          </form>
+        <article>
+          <strong>{marks.length}</strong>
+          <span>Total mark records</span>
         </article>
-
-        <article className="panel">
-          <h2>Notifications</h2>
-          <ul className="notifications">
-            {notifications.map((n) => (
-              <li key={n.id}>
-                <div>
-                  <strong>{n.is_read ? "Read" : "Unread"}</strong>
-                  <p>{n.message}</p>
-                </div>
-                {!Number(n.is_read) && (
-                  <button type="button" onClick={() => markNotificationRead(n.id)}>
-                    Mark Read
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+        <article>
+          <strong>{averageMark}</strong>
+          <span>Average marks</span>
         </article>
       </section>
 
+      {canManageMarks && (
+        <section className="panel two-column">
+          <div>
+            <h2>Enter Marks</h2>
+            <form onSubmit={saveMarks} className="stack">
+              <label htmlFor="studentId">Student</label>
+              <select
+                id="studentId"
+                value={markForm.studentId}
+                onChange={(event) => setMarkForm({ ...markForm, studentId: event.target.value })}
+                required
+              >
+                <option value="">Select student</option>
+                {students.map((student) => (
+                  <option key={student.id} value={student.id}>
+                    {student.name} {student.admission_number ? `(${student.admission_number})` : ""}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="subject">Subject</label>
+              <input
+                id="subject"
+                value={markForm.subject}
+                onChange={(event) => setMarkForm({ ...markForm, subject: event.target.value })}
+                placeholder="Mathematics"
+                required
+              />
+              <label htmlFor="marks">Marks</label>
+              <input
+                id="marks"
+                type="number"
+                min="0"
+                max="100"
+                value={markForm.marks}
+                onChange={(event) => setMarkForm({ ...markForm, marks: event.target.value })}
+                required
+              />
+              <button type="submit">Save Grade</button>
+            </form>
+          </div>
+
+          <div>
+            <h2>{user.role === "admin" ? "Admin View" : "Lecturer View"}</h2>
+            <p className="muted">
+              {user.role === "admin"
+                ? "Admins can review all student marks and overall performance."
+                : "Lecturers can enter marks; grades are calculated automatically."}
+            </p>
+          </div>
+        </section>
+      )}
+
       <section className="panel">
-        <h2>Tasks</h2>
-        <div className="task-table-wrap">
-          <table className="task-table">
+        <h2>{canManageMarks ? "All Student Grades" : "My Grades"}</h2>
+        <div className="table-wrap">
+          <table>
             <thead>
               <tr>
-                <th>Title</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Deadline</th>
-                <th>Team</th>
-                <th>Assignee</th>
-                <th>Actions</th>
+                {canManageMarks && <th>Student</th>}
+                <th>Subject</th>
+                <th>Marks</th>
+                <th>Grade</th>
+                <th>Remarks</th>
+                <th>Lecturer</th>
               </tr>
             </thead>
             <tbody>
-              {tasks.map((task) => (
-                <tr key={task.id} className={Number(selectedTaskId) === Number(task.id) ? "active-row" : ""}>
-                  <td>
-                    <button type="button" className="linkish" onClick={() => setSelectedTaskId(task.id)}>
-                      {task.title}
-                    </button>
-                  </td>
-                  <td>
-                    <select
-                      value={task.priority}
-                      onChange={(e) =>
-                        setTasks((prev) =>
-                          prev.map((t) => (t.id === task.id ? { ...t, priority: e.target.value } : t))
-                        )
-                      }
-                    >
-                      <option value="Low">Low</option>
-                      <option value="Medium">Medium</option>
-                      <option value="High">High</option>
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      value={task.status}
-                      onChange={(e) =>
-                        setTasks((prev) =>
-                          prev.map((t) => (t.id === task.id ? { ...t, status: e.target.value } : t))
-                        )
-                      }
-                    >
-                      <option value="Todo">Todo</option>
-                      <option value="In Progress">In Progress</option>
-                      <option value="Done">Done</option>
-                    </select>
-                  </td>
-                  <td>
-                    <input
-                      type="date"
-                      value={task.due_date || ""}
-                      onChange={(e) =>
-                        setTasks((prev) =>
-                          prev.map((t) => (t.id === task.id ? { ...t, due_date: e.target.value } : t))
-                        )
-                      }
-                    />
-                  </td>
-                  <td>{task.team_id}</td>
-                  <td>{task.assignee_name || "Unassigned"}</td>
-                  <td>
-                    <button type="button" onClick={() => updateTask(task)}>
-                      Save
-                    </button>
-                  </td>
+              {marks.map((record) => (
+                <tr key={record.id}>
+                  {canManageMarks && (
+                    <td>
+                      {record.student_name}
+                      <span>{record.admission_number || "No admission number"}</span>
+                    </td>
+                  )}
+                  <td>{record.subject}</td>
+                  <td>{Number(record.marks).toFixed(0)}</td>
+                  <td><strong>{record.grade}</strong></td>
+                  <td>{record.remarks}</td>
+                  <td>{record.lecturer_name}</td>
                 </tr>
               ))}
+              {marks.length === 0 && (
+                <tr>
+                  <td colSpan={canManageMarks ? 6 : 5}>No marks recorded yet.</td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </section>
-
-      <section className="panel">
-        <h2>Task Chat</h2>
-        {!selectedTaskId && <p>Select a task to open its conversation.</p>}
-        {selectedTaskId && (
-          <>
-            <div className="comment-list">
-              {comments.map((comment) => (
-                <article key={comment.id}>
-                  <p className="comment-meta">
-                    {comment.name} · {new Date(comment.created_at).toLocaleString()}
-                  </p>
-                  <p>{comment.body}</p>
-                </article>
-              ))}
-            </div>
-            <form onSubmit={addComment} className="stack">
-              <textarea
-                placeholder="Write a comment..."
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                required
-              />
-              <button type="submit">Post Comment</button>
-            </form>
-          </>
-        )}
-      </section>
     </main>
   );
+}
+
+function normalizeMarkRecord(record) {
+  return {
+    id: record.id,
+    subject: record.subject,
+    marks: record.marks,
+    grade: record.grade,
+    remarks: record.remarks,
+    student_name: record.student?.name,
+    admission_number: record.student?.admission_number,
+    lecturer_name: record.lecturer?.name || "School staff",
+  };
+}
+
+function dashboardTitle(role) {
+  if (role === "admin") return "Administration Dashboard";
+  if (role === "lecturer") return "Lecturer Marks Dashboard";
+  return "Student Results Dashboard";
+}
+
+function averageMarks(records) {
+  if (!records.length) return "0";
+  const total = records.reduce((sum, record) => sum + Number(record.marks || 0), 0);
+  return (total / records.length).toFixed(1);
 }
 
 export default App;

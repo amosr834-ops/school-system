@@ -4,6 +4,24 @@
 **Date:** April 26, 2026  
 **Prepared for:** Semester-Long Project
 
+## Netlify + Supabase Deployment
+
+This project can be deployed as a Vite frontend on Netlify with Supabase providing authentication and the database.
+
+1. Create a Supabase project.
+2. In Supabase SQL Editor, run `Database/supabase-schema.sql`.
+3. In Supabase Authentication settings, enable Email login. Enable Google provider if you want Google login.
+4. Add your Netlify URL to Supabase Auth redirect URLs after your first deploy.
+5. In Netlify, set:
+   - Base directory: `Front-end`
+   - Build command: `npm run build`
+   - Publish directory: `Front-end/dist`
+6. Add Netlify environment variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+
+For lecturer/admin access, create the user in Supabase Auth, then insert a matching row in `public.profiles` with `role` set to `lecturer` or `admin`. Students can sign in with Google and get a student profile automatically, or you can create their profile manually with an admission number.
+
 ## 1. Introduction
 
 ### 1.1 Purpose

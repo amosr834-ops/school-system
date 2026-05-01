@@ -6,6 +6,8 @@ require_once "auth.php";
 $data = readJsonBody();
 $name = trim((string) ($data["name"] ?? ""));
 $email = trim((string) ($data["email"] ?? ""));
+$admissionNumber = trim((string) ($data["admissionNumber"] ?? ($data["admission_number"] ?? "")));
+$role = normalizeRole(trim((string) ($data["role"] ?? "student")));
 $password = (string) ($data["password"] ?? "");
 
 if ($name === "" || $email === "" || $password === "") {
@@ -17,14 +19,15 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 $hash = password_hash($password, PASSWORD_BCRYPT);
+$admissionNumber = $admissionNumber === "" ? null : $admissionNumber;
 
 try {
-    $stmt = $conn->prepare("INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $name, $email, $hash);
+    $stmt = $conn->prepare("INSERT INTO users (name, email, admission_number, role, password_hash) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssss", $name, $email, $admissionNumber, $role, $hash);
     $stmt->execute();
 
     $userId = (int) $conn->insert_id;
-    $token = createToken($userId, $email);
+    $token = createToken($userId, $email, $role);
 
     respond(201, [
         "status" => "success",
@@ -33,10 +36,12 @@ try {
         "user" => [
             "id" => $userId,
             "name" => $name,
-            "email" => $email
+            "email" => $email,
+            "admission_number" => $admissionNumber,
+            "role" => $role
         ]
     ]);
 } catch (mysqli_sql_exception $e) {
-    respond(409, ["status" => "error", "message" => "Email already registered"]);
+    respond(409, ["status" => "error", "message" => "Email or admission number already registered"]);
 }
 ?>

@@ -5,8 +5,12 @@ CREATE TABLE IF NOT EXISTS users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   email VARCHAR(150) NOT NULL UNIQUE,
+  admission_number VARCHAR(50) NULL UNIQUE,
+  role ENUM('admin', 'lecturer', 'student') NOT NULL DEFAULT 'student',
+  google_sub VARCHAR(255) NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_users_role_name (role, name)
 );
 
 CREATE TABLE IF NOT EXISTS teams (
@@ -63,21 +67,40 @@ CREATE TABLE IF NOT EXISTS notifications (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS student_marks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  student_id INT NOT NULL,
+  lecturer_id INT NOT NULL,
+  subject VARCHAR(120) NOT NULL,
+  marks DECIMAL(5,2) NOT NULL,
+  grade VARCHAR(5) NOT NULL,
+  remarks VARCHAR(120) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_student_subject (student_id, subject),
+  KEY idx_student_marks_lecturer (lecturer_id),
+  FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (lecturer_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- Sample test data ----------------------------------------------------------
 -- Login credentials for all seeded users:
 -- email: see records below
 -- password: password
 
-INSERT INTO users (id, name, email, password_hash, created_at)
+INSERT INTO users (id, name, email, admission_number, role, google_sub, password_hash, created_at)
 VALUES
-  (1, 'Alice Admin', 'alice.admin@school.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:00:00'),
-  (2, 'Brian Teacher', 'brian.teacher@school.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:05:00'),
-  (3, 'Carol Teacher', 'carol.teacher@school.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:10:00'),
-  (4, 'David Student', 'david.student@school.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:15:00'),
-  (5, 'Emma Student', 'emma.student@school.local', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:20:00')
+  (1, 'Alice Admin', 'alice.admin@school.local', NULL, 'admin', NULL, '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:00:00'),
+  (2, 'Brian Lecturer', 'brian.lecturer@school.local', NULL, 'lecturer', NULL, '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:05:00'),
+  (3, 'Carol Lecturer', 'carol.lecturer@school.local', NULL, 'lecturer', NULL, '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:10:00'),
+  (4, 'David Student', 'david.student@school.local', '20/194', 'student', NULL, '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:15:00'),
+  (5, 'Emma Student', 'emma.student@school.local', '20/195', 'student', NULL, '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', '2026-04-01 08:20:00')
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   email = VALUES(email),
+  admission_number = VALUES(admission_number),
+  role = VALUES(role),
+  google_sub = VALUES(google_sub),
   password_hash = VALUES(password_hash);
 
 INSERT INTO teams (id, name, owner_id, created_at)
@@ -148,3 +171,15 @@ ON DUPLICATE KEY UPDATE
   message = VALUES(message),
   is_read = VALUES(is_read),
   created_at = VALUES(created_at);
+
+INSERT INTO student_marks (id, student_id, lecturer_id, subject, marks, grade, remarks, created_at, updated_at)
+VALUES
+  (3001, 4, 2, 'Mathematics', 82, 'A', 'Excellent', '2026-04-20 10:00:00', '2026-04-20 10:00:00'),
+  (3002, 4, 2, 'English', 74, 'B', 'Very good', '2026-04-20 10:10:00', '2026-04-20 10:10:00'),
+  (3003, 5, 3, 'Science', 67, 'C', 'Good', '2026-04-20 10:20:00', '2026-04-20 10:20:00')
+ON DUPLICATE KEY UPDATE
+  lecturer_id = VALUES(lecturer_id),
+  marks = VALUES(marks),
+  grade = VALUES(grade),
+  remarks = VALUES(remarks),
+  updated_at = VALUES(updated_at);

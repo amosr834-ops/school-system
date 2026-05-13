@@ -344,6 +344,23 @@ label {
   background: #f8fbff;
 }
 
+.form-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.link-button {
+  width: 100%;
+  margin-top: 0.9rem;
+  background: transparent;
+  color: var(--accent-dark);
+  border: 1px solid var(--border);
+  box-shadow: none;
+  font-weight: 800;
+}
+
 .dashboard {
   max-width: 1220px;
   margin: 0 auto;
@@ -555,6 +572,12 @@ label {
   align-items: stretch;
 }
 
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
 .form-panel,
 .guidance-card {
   border-radius: 8px;
@@ -726,6 +749,7 @@ td span {
 @media (max-width: 820px) {
   .auth-page,
   .two-column,
+  .admin-grid,
   .summary-grid {
     grid-template-columns: 1fr;
   }

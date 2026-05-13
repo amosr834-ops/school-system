@@ -103,6 +103,11 @@ function ensureDevelopmentSchema(mysqli $conn): void
         $conn->query("ALTER TABLE users ADD COLUMN google_sub VARCHAR(255) NULL UNIQUE AFTER role");
     }
 
+    $columnCheck = $conn->query("SHOW COLUMNS FROM users LIKE 'force_password_change'");
+    if ($columnCheck->num_rows === 0) {
+        $conn->query("ALTER TABLE users ADD COLUMN force_password_change TINYINT(1) NOT NULL DEFAULT 0 AFTER password_hash");
+    }
+
     $conn->query(
         "CREATE TABLE IF NOT EXISTS student_marks (
             id INT AUTO_INCREMENT PRIMARY KEY,

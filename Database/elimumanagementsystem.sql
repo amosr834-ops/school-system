@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   role ENUM('admin', 'lecturer', 'student') NOT NULL DEFAULT 'student',
   google_sub VARCHAR(255) NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
+  force_password_change TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   KEY idx_users_role_name (role, name)
 );

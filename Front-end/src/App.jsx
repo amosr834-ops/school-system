@@ -17,13 +17,24 @@ function App() {
   const [message, setMessage] = useState("");
   const [loginForm, setLoginForm] = useState({ identifier: "", password: "" });
   const [registerForm, setRegisterForm] = useState({ name: "", email: "", admissionNumber: "", password: "" });
-  const [resetForm, setResetForm] = useState({ identifier: "" });
+  const [resetForm, setResetForm] = useState({ identifier: "", currentPassword: "", newPassword: "", confirmPassword: "" });
   const [students, setStudents] = useState([]);
   const [marks, setMarks] = useState([]);
+  const [users, setUsers] = useState([]);
   const [markForm, setMarkForm] = useState({ studentId: "", subject: "", marks: "" });
+  const [adminUserForm, setAdminUserForm] = useState({
+    name: "",
+    email: "",
+    admissionNumber: "",
+    role: "lecturer",
+    password: "",
+  });
+  const [adminResetForm, setAdminResetForm] = useState({ userId: "", tempPassword: "" });
+  const [changePasswordForm, setChangePasswordForm] = useState({ tempPassword: "", newPassword: "", confirmPassword: "" });
 
   const selectedRole = roles.find((role) => role.id === activeRole);
   const canManageMarks = useMemo(() => ["admin", "lecturer"].includes(user?.role), [user?.role]);
+  const isAdmin = user?.role === "admin";
   const averageMark = useMemo(() => averageMarks(marks), [marks]);
   const trackedCount = canManageMarks ? students.length : marks.length;
 
@@ -62,6 +73,16 @@ function App() {
 
     const data = await apiRequest("marks.php?students=1");
     setStudents(data.students || []);
+  }, []);
+
+  const loadUsers = useCallback(async (profile) => {
+    if (profile?.role !== "admin") {
+      setUsers([]);
+      return;
+    }
+
+    const data = await apiRequest("admin_users.php");
+    setUsers(data.users || []);
   }, []);
 
   const ensureProfile = useCallback(async (authUser, fallbackRole = "student") => {
@@ -104,7 +125,7 @@ function App() {
       localStorage.removeItem("pendingRole");
       setUser(profile);
       setActiveRole(profile.role || "student");
-      await Promise.all([loadMarks(profile), loadStudents(profile)]);
+      await Promise.all([loadMarks(profile), loadStudents(profile), loadUsers(profile)]);
       setMessage("");
     } catch (error) {
       showError(error, "Failed to load your school profile.");
@@ -113,7 +134,7 @@ function App() {
       }
       setUser(null);
     }
-  }, [activeRole, ensureProfile, loadMarks, loadStudents, showError, supabaseClient]);
+  }, [activeRole, ensureProfile, loadMarks, loadStudents, loadUsers, showError, supabaseClient]);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -142,6 +163,7 @@ function App() {
         setUser(null);
         setStudents([]);
         setMarks([]);
+        setUsers([]);
       }
     });
 
@@ -209,23 +231,93 @@ function App() {
 
   async function handleReset(event) {
     event.preventDefault();
-    if (!supabaseClient) {
-      setMessage("Add Supabase URL and anon key to enable password reset.");
+
+    if (resetForm.newPassword !== resetForm.confirmPassword) {
+      setMessage("New passwords do not match.");
       return;
     }
 
     try {
-      const email = await resolveEmail(resetForm.identifier, activeRole);
-      const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
+      const data = await apiRequest("reset_password.php", {
+        method: "POST",
+        body: {
+          identifier: resetForm.identifier,
+          role: activeRole,
+          currentPassword: resetForm.currentPassword,
+          newPassword: resetForm.newPassword,
+        },
       });
 
-      if (error) throw error;
       setAuthMode("login");
-      setResetForm({ identifier: "" });
-      setMessage("Password reset email sent. Check your inbox.");
+      setResetForm({ identifier: "", currentPassword: "", newPassword: "", confirmPassword: "" });
+      setMessage(data.message || "Password reset successful. You can login with your new password.");
     } catch (error) {
       showError(error, "Password reset failed.");
+    }
+  }
+
+  async function createAdminUser(event) {
+    event.preventDefault();
+
+    try {
+      const data = await apiRequest("admin_users.php", {
+        method: "POST",
+        body: adminUserForm,
+      });
+
+      setAdminUserForm({ name: "", email: "", admissionNumber: "", role: "lecturer", password: "" });
+      await Promise.all([loadUsers(user), loadStudents(user)]);
+      setMessage(data.message || "User account created.");
+    } catch (error) {
+      showError(error, "Failed to create user.");
+    }
+  }
+
+  async function issueTempPassword(event) {
+    event.preventDefault();
+
+    try {
+      const data = await apiRequest("admin_users.php", {
+        method: "POST",
+        body: {
+          action: "issue_temp_password",
+          userId: adminResetForm.userId,
+          tempPassword: adminResetForm.tempPassword,
+        },
+      });
+
+      setAdminResetForm({ userId: "", tempPassword: "" });
+      await loadUsers(user);
+      setMessage(data.message || "Temporary password issued.");
+    } catch (error) {
+      showError(error, "Failed to issue temporary password.");
+    }
+  }
+
+  async function changeRequiredPassword(event) {
+    event.preventDefault();
+
+    if (changePasswordForm.newPassword !== changePasswordForm.confirmPassword) {
+      setMessage("New passwords do not match.");
+      return;
+    }
+
+    try {
+      const data = await apiRequest("reset_password.php", {
+        method: "POST",
+        body: {
+          identifier: user.email,
+          role: user.role,
+          currentPassword: changePasswordForm.tempPassword,
+          newPassword: changePasswordForm.newPassword,
+        },
+      });
+
+      setChangePasswordForm({ tempPassword: "", newPassword: "", confirmPassword: "" });
+      setUser({ ...user, force_password_change: false });
+      setMessage(data.message || "Password changed. You can continue.");
+    } catch (error) {
+      showError(error, "Failed to change password.");
     }
   }
 
@@ -253,6 +345,7 @@ function App() {
     setUser(null);
     setStudents([]);
     setMarks([]);
+    setUsers([]);
     setMessage("");
   }
 
@@ -356,7 +449,7 @@ function App() {
               />
               <button type="submit">Sign In</button>
             </form>
-          ) : authMode === "register" ? (
+          ) : authMode === "register" && activeRole === "student" ? (
             <form onSubmit={handleRegister} className="stack">
               <label htmlFor="registerName">Full name</label>
               <input
@@ -397,16 +490,51 @@ function App() {
               />
               <button type="submit">Create Account</button>
             </form>
+          ) : authMode === "register" ? (
+            <div className="stack">
+              <p className="form-help">
+                Teacher and admin accounts are created from the admin dashboard. Ask an admin to add the account and issue login credentials.
+              </p>
+              <button type="button" onClick={() => setAuthMode("login")}>Back to Login</button>
+            </div>
           ) : (
             <form onSubmit={handleReset} className="stack">
               <label htmlFor="resetIdentifier">{activeRole === "student" ? "Admission number or email" : "Email"}</label>
               <input
                 id="resetIdentifier"
                 value={resetForm.identifier}
-                onChange={(event) => setResetForm({ identifier: event.target.value })}
+                onChange={(event) => setResetForm({ ...resetForm, identifier: event.target.value })}
                 required
               />
-              <button type="submit">Send Reset Link</button>
+              <label htmlFor="rememberedPassword">Previous or temporary password</label>
+              <input
+                id="rememberedPassword"
+                type="password"
+                value={resetForm.currentPassword}
+                onChange={(event) => setResetForm({ ...resetForm, currentPassword: event.target.value })}
+                placeholder="Enter the password you can remember"
+                required
+              />
+              <label htmlFor="newResetPassword">New password</label>
+              <input
+                id="newResetPassword"
+                type="password"
+                value={resetForm.newPassword}
+                onChange={(event) => setResetForm({ ...resetForm, newPassword: event.target.value })}
+                minLength={6}
+                required
+              />
+              <label htmlFor="confirmResetPassword">Confirm new password</label>
+              <input
+                id="confirmResetPassword"
+                type="password"
+                value={resetForm.confirmPassword}
+                onChange={(event) => setResetForm({ ...resetForm, confirmPassword: event.target.value })}
+                minLength={6}
+                required
+              />
+              <button type="submit">Reset Password</button>
+              <p className="form-help">If you cannot remember any password, contact an admin for a temporary password.</p>
             </form>
           )}
 
@@ -419,6 +547,64 @@ function App() {
             </div>
           )}
 
+          {message && <p className="notice">{message}</p>}
+        </section>
+      </main>
+    );
+  }
+
+  if (user.force_password_change) {
+    return (
+      <main className="auth-page">
+        <section className="brand-panel">
+          <div className="brand-content">
+            <div className="brand-mark">
+              <img src="/Logo.png" alt="Elimu School" />
+              <span>Elimu School</span>
+            </div>
+            <h1>Set your own secure password.</h1>
+            <p>An admin issued a temporary password for your account. Change it now before continuing.</p>
+          </div>
+        </section>
+
+        <section className="auth-panel">
+          <div className="auth-heading">
+            <p className="eyebrow">Password required</p>
+            <h2>Create New Password</h2>
+            <p>Use the temporary password from your admin, then choose a new password only you know.</p>
+          </div>
+
+          <form onSubmit={changeRequiredPassword} className="stack">
+            <label htmlFor="tempPassword">Temporary password</label>
+            <input
+              id="tempPassword"
+              type="password"
+              value={changePasswordForm.tempPassword}
+              onChange={(event) => setChangePasswordForm({ ...changePasswordForm, tempPassword: event.target.value })}
+              required
+            />
+            <label htmlFor="forcedNewPassword">New password</label>
+            <input
+              id="forcedNewPassword"
+              type="password"
+              value={changePasswordForm.newPassword}
+              onChange={(event) => setChangePasswordForm({ ...changePasswordForm, newPassword: event.target.value })}
+              minLength={6}
+              required
+            />
+            <label htmlFor="forcedConfirmPassword">Confirm new password</label>
+            <input
+              id="forcedConfirmPassword"
+              type="password"
+              value={changePasswordForm.confirmPassword}
+              onChange={(event) => setChangePasswordForm({ ...changePasswordForm, confirmPassword: event.target.value })}
+              minLength={6}
+              required
+            />
+            <button type="submit">Change Password</button>
+          </form>
+
+          <button type="button" className="link-button" onClick={logout}>Logout</button>
           {message && <p className="notice">{message}</p>}
         </section>
       </main>
@@ -522,6 +708,102 @@ function App() {
               <span>Performance summaries remain visible at the top.</span>
             </div>
           </aside>
+        </section>
+      )}
+
+      {isAdmin && (
+        <section className="panel admin-grid">
+          <div className="form-panel">
+            <div className="panel-heading">
+              <p className="eyebrow">User management</p>
+              <h2>Add Teacher, Admin, or Student</h2>
+            </div>
+            <form onSubmit={createAdminUser} className="stack">
+              <label htmlFor="adminUserRole">Role</label>
+              <select
+                id="adminUserRole"
+                value={adminUserForm.role}
+                onChange={(event) => setAdminUserForm({ ...adminUserForm, role: event.target.value })}
+              >
+                <option value="lecturer">Teacher / Lecturer</option>
+                <option value="admin">Admin</option>
+                <option value="student">Student</option>
+              </select>
+              <label htmlFor="adminUserName">Full name</label>
+              <input
+                id="adminUserName"
+                value={adminUserForm.name}
+                onChange={(event) => setAdminUserForm({ ...adminUserForm, name: event.target.value })}
+                placeholder="Jane Teacher"
+                required
+              />
+              <label htmlFor="adminUserEmail">Email</label>
+              <input
+                id="adminUserEmail"
+                type="email"
+                value={adminUserForm.email}
+                onChange={(event) => setAdminUserForm({ ...adminUserForm, email: event.target.value })}
+                placeholder="jane.teacher@school.local"
+                required
+              />
+              {adminUserForm.role === "student" && (
+                <>
+                  <label htmlFor="adminUserAdmission">Admission number</label>
+                  <input
+                    id="adminUserAdmission"
+                    value={adminUserForm.admissionNumber}
+                    onChange={(event) => setAdminUserForm({ ...adminUserForm, admissionNumber: event.target.value })}
+                    placeholder="20/194"
+                    required
+                  />
+                </>
+              )}
+              <label htmlFor="adminUserPassword">Initial password</label>
+              <input
+                id="adminUserPassword"
+                type="password"
+                value={adminUserForm.password}
+                onChange={(event) => setAdminUserForm({ ...adminUserForm, password: event.target.value })}
+                minLength={6}
+                required
+              />
+              <button type="submit">Create User</button>
+            </form>
+          </div>
+
+          <div className="form-panel">
+            <div className="panel-heading">
+              <p className="eyebrow">One-time access</p>
+              <h2>Issue Temporary Password</h2>
+            </div>
+            <form onSubmit={issueTempPassword} className="stack">
+              <label htmlFor="tempUserId">User</label>
+              <select
+                id="tempUserId"
+                value={adminResetForm.userId}
+                onChange={(event) => setAdminResetForm({ ...adminResetForm, userId: event.target.value })}
+                required
+              >
+                <option value="">Select user</option>
+                {users.map((managedUser) => (
+                  <option key={managedUser.id} value={managedUser.id}>
+                    {managedUser.name} - {managedUser.role}{managedUser.force_password_change ? " - pending change" : ""}
+                  </option>
+                ))}
+              </select>
+              <label htmlFor="tempPasswordInput">Temporary password</label>
+              <input
+                id="tempPasswordInput"
+                type="password"
+                value={adminResetForm.tempPassword}
+                onChange={(event) => setAdminResetForm({ ...adminResetForm, tempPassword: event.target.value })}
+                minLength={6}
+                required
+              />
+              <button type="submit">Issue One-Time Password</button>
+              <p className="form-help">The user logs in with this temporary password and must immediately set a new one.</p>
+            </form>
+          </div>
         </section>
       )}
 

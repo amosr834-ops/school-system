@@ -16,7 +16,7 @@ if ($identifier === "" || $password === "") {
 }
 
 $stmt = $conn->prepare(
-    "SELECT id, name, email, admission_number, role, password_hash
+    "SELECT id, name, email, admission_number, role, password_hash, force_password_change
      FROM users
      WHERE role = ? AND (email = ? OR admission_number = ?)"
 );
@@ -39,7 +39,8 @@ if ($result->num_rows === 1) {
                 "name" => $user["name"],
                 "email" => $user["email"],
                 "admission_number" => $user["admission_number"],
-                "role" => $user["role"]
+                "role" => $user["role"],
+                "force_password_change" => (bool) $user["force_password_change"]
             ]
         ]);
     }

@@ -15,7 +15,8 @@ function base64UrlDecode(string $data): string
     if ($padding > 0) {
         $data .= str_repeat("=", 4 - $padding);
     }
-    return base64_decode(strtr($data, "-_", "+/")) ?: "";
+    $decoded = base64_decode(strtr($data, "-_", "+/"), true);
+    return $decoded === false ? "" : $decoded;
 }
 
 function createToken(int $userId, string $email, string $role = "student"): string
@@ -44,10 +45,13 @@ function normalizeRole(string $role): string
 
 function parseAuthorizationHeader(): string
 {
-    $headers = getallheaders();
+    $headers = function_exists("getallheaders") ? getallheaders() : [];
     $authHeader = $headers["Authorization"] ?? $headers["authorization"] ?? "";
+    if ($authHeader === "") {
+        $authHeader = $_SERVER["HTTP_AUTHORIZATION"] ?? $_SERVER["REDIRECT_HTTP_AUTHORIZATION"] ?? "";
+    }
 
-    if (!preg_match("/Bearer\\s+(.*)$/i", $authHeader, $matches)) {
+    if (!preg_match("/^Bearer\\s+([A-Za-z0-9._-]+)$/i", $authHeader, $matches)) {
         return "";
     }
 
@@ -62,6 +66,11 @@ function decodeToken(string $token): ?array
     }
 
     [$headerEncoded, $payloadEncoded, $signatureEncoded] = $parts;
+    $header = json_decode(base64UrlDecode($headerEncoded), true);
+    if (!is_array($header) || ($header["alg"] ?? "") !== "HS256" || ($header["typ"] ?? "JWT") !== "JWT") {
+        return null;
+    }
+
     $expectedSignature = hash_hmac("sha256", $headerEncoded . "." . $payloadEncoded, JWT_SECRET, true);
     $receivedSignature = base64UrlDecode($signatureEncoded);
 
@@ -70,7 +79,11 @@ function decodeToken(string $token): ?array
     }
 
     $payload = json_decode(base64UrlDecode($payloadEncoded), true);
-    if (!is_array($payload) || !isset($payload["exp"]) || time() > (int) $payload["exp"]) {
+    if (!is_array($payload) || !isset($payload["sub"], $payload["exp"]) || time() > (int) $payload["exp"]) {
+        return null;
+    }
+
+    if ((int) $payload["sub"] < 1) {
         return null;
     }
 
@@ -79,6 +92,8 @@ function decodeToken(string $token): ?array
 
 function requireAuth(): array
 {
+    global $conn;
+
     $token = parseAuthorizationHeader();
     if ($token === "") {
         http_response_code(401);
@@ -92,6 +107,22 @@ function requireAuth(): array
         echo json_encode(["status" => "error", "message" => "Invalid or expired token"]);
         exit();
     }
+
+    $userId = (int) $payload["sub"];
+    $stmt = $conn->prepare("SELECT id, email, role FROM users WHERE id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($result->num_rows !== 1) {
+        http_response_code(401);
+        echo json_encode(["status" => "error", "message" => "Invalid or expired token"]);
+        exit();
+    }
+
+    $user = $result->fetch_assoc();
+    $payload["sub"] = (int) $user["id"];
+    $payload["email"] = (string) $user["email"];
+    $payload["role"] = normalizeRole((string) $user["role"]);
 
     return $payload;
 }

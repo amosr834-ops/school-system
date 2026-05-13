@@ -83,6 +83,14 @@ define("DB_AUTO_MIGRATE", filter_var(envValue("DB_AUTO_MIGRATE", "0"), FILTER_VA
 define("JWT_SECRET", envValue("JWT_SECRET", "change-me-in-production"));
 define("TOKEN_TTL_SECONDS", (int) envValue("TOKEN_TTL_SECONDS", "86400"));
 define("GOOGLE_CLIENT_ID", envValue("GOOGLE_CLIENT_ID", ""));
+define("CORS_ALLOWED_ORIGINS", envValue("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"));
+
+if (APP_ENV === "production" && in_array(JWT_SECRET, ["", "change-me-in-production", "replace-with-a-strong-secret"], true)) {
+    http_response_code(500);
+    header("Content-Type: application/json");
+    echo json_encode(["status" => "error", "message" => "Server authentication is not securely configured"]);
+    exit();
+}
 
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 

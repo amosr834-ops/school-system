@@ -4,7 +4,7 @@ require_once "utils.php";
 require_once "auth.php";
 
 $data = readJsonBody();
-$identifier = trim((string) ($data["identifier"] ?? ""));
+$identifier = trimLimitedString($data["identifier"] ?? "", 150);
 $role = normalizeRole(trim((string) ($data["role"] ?? "student")));
 $currentPassword = (string) ($data["currentPassword"] ?? ($data["rememberedPassword"] ?? ""));
 $newPassword = (string) ($data["newPassword"] ?? "");
@@ -18,6 +18,10 @@ if ($identifier === "" || $currentPassword === "" || $newPassword === "") {
 
 if (strlen($newPassword) < 6) {
     respond(422, ["status" => "error", "message" => "Password must be at least 6 characters"]);
+}
+
+if (strlen($currentPassword) > 1024 || strlen($newPassword) > 1024) {
+    respond(422, ["status" => "error", "message" => "Password is too long"]);
 }
 
 $userStmt = $conn->prepare(

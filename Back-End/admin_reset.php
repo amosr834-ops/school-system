@@ -4,7 +4,7 @@ require_once "utils.php";
 require_once "auth.php";
 
 $data = readJsonBody();
-$action = trim((string) ($data["action"] ?? "self_reset"));
+$action = trimLimitedString($data["action"] ?? "self_reset", 40);
 
 function updateUserPassword(mysqli $conn, int $userId, string $password, bool $forceChange): void
 {
@@ -25,7 +25,7 @@ if ($action === "issue_temp_password") {
     $targetUserId = (int) ($data["userId"] ?? 0);
     $temporaryPassword = (string) ($data["temporaryPassword"] ?? ($data["tempPassword"] ?? ""));
 
-    if ($targetUserId < 1 || strlen($temporaryPassword) < 6) {
+    if ($targetUserId < 1 || strlen($temporaryPassword) < 6 || strlen($temporaryPassword) > 1024) {
         respond(422, [
             "status" => "error",
             "message" => "User and a temporary password of at least 6 characters are required"
@@ -48,7 +48,7 @@ if ($action === "issue_temp_password") {
     ]);
 }
 
-$identifier = trim((string) ($data["identifier"] ?? ""));
+$identifier = trimLimitedString($data["identifier"] ?? "", 150);
 $role = normalizeRole(trim((string) ($data["role"] ?? "student")));
 $rememberedPassword = (string) ($data["rememberedPassword"] ?? ($data["currentPassword"] ?? ""));
 $newPassword = (string) ($data["newPassword"] ?? "");
@@ -62,6 +62,10 @@ if ($identifier === "" || $rememberedPassword === "" || $newPassword === "") {
 
 if (strlen($newPassword) < 6) {
     respond(422, ["status" => "error", "message" => "Password must be at least 6 characters"]);
+}
+
+if (strlen($rememberedPassword) > 1024 || strlen($newPassword) > 1024) {
+    respond(422, ["status" => "error", "message" => "Password is too long"]);
 }
 
 $userStmt = $conn->prepare(

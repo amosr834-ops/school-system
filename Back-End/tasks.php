@@ -36,16 +36,24 @@ if ($method === "GET") {
 
 if ($method === "POST") {
     $data = readJsonBody();
-    $title = trim((string) ($data["title"] ?? ""));
-    $description = trim((string) ($data["description"] ?? ""));
-    $priority = trim((string) ($data["priority"] ?? "Medium"));
-    $dueDate = trim((string) ($data["dueDate"] ?? ""));
+    $title = trimLimitedString($data["title"] ?? "", 200);
+    $description = trimLimitedString($data["description"] ?? "", 5000);
+    $priority = trimLimitedString($data["priority"] ?? "Medium", 20);
+    $dueDate = trimLimitedString($data["dueDate"] ?? "", 10);
     $teamId = (int) ($data["teamId"] ?? 0);
-    $assigneeEmail = trim((string) ($data["assigneeEmail"] ?? ""));
+    $assigneeEmail = trimLimitedString($data["assigneeEmail"] ?? "", 150);
     $dueDate = $dueDate === "" ? null : $dueDate;
 
     if ($title === "" || $teamId < 1) {
         respond(422, ["status" => "error", "message" => "Title and team are required"]);
+    }
+
+    if (!isAllowedValue($priority, ["Low", "Medium", "High"]) || !isValidDateString($dueDate)) {
+        respond(422, ["status" => "error", "message" => "Priority or due date is invalid"]);
+    }
+
+    if ($assigneeEmail !== "" && !filter_var($assigneeEmail, FILTER_VALIDATE_EMAIL)) {
+        respond(422, ["status" => "error", "message" => "Assignee email is invalid"]);
     }
 
     $membershipCheck = $conn->prepare("SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?");
@@ -116,12 +124,18 @@ if ($method === "POST") {
 if ($method === "PUT") {
     $data = readJsonBody();
     $taskId = (int) ($data["taskId"] ?? 0);
-    $status = trim((string) ($data["status"] ?? ""));
-    $priority = trim((string) ($data["priority"] ?? ""));
-    $dueDate = (string) ($data["dueDate"] ?? "");
+    $status = trimLimitedString($data["status"] ?? "", 20);
+    $priority = trimLimitedString($data["priority"] ?? "", 20);
+    $dueDate = trimLimitedString($data["dueDate"] ?? "", 10);
 
     if ($taskId < 1) {
         respond(422, ["status" => "error", "message" => "taskId is required"]);
+    }
+
+    if (($status !== "" && !isAllowedValue($status, ["Todo", "In Progress", "Done"])) ||
+        ($priority !== "" && !isAllowedValue($priority, ["Low", "Medium", "High"])) ||
+        !isValidDateString($dueDate)) {
+        respond(422, ["status" => "error", "message" => "Status, priority, or due date is invalid"]);
     }
 
     $accessCheck = $conn->prepare(

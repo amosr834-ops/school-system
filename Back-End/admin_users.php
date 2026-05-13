@@ -39,13 +39,13 @@ if ($method === "GET") {
 
 if ($method === "POST") {
     $data = readJsonBody();
-    $action = trim((string) ($data["action"] ?? "create"));
+    $action = trimLimitedString($data["action"] ?? "create", 40);
 
     if ($action === "issue_temp_password") {
         $targetUserId = (int) ($data["userId"] ?? 0);
         $tempPassword = (string) ($data["tempPassword"] ?? ($data["newPassword"] ?? ""));
 
-        if ($targetUserId < 1 || strlen($tempPassword) < 6) {
+        if ($targetUserId < 1 || strlen($tempPassword) < 6 || strlen($tempPassword) > 1024) {
             respond(422, ["status" => "error", "message" => "User and a temporary password of at least 6 characters are required"]);
         }
 
@@ -61,9 +61,9 @@ if ($method === "POST") {
         respond(200, ["status" => "success", "message" => "Temporary password issued. The user must change it at next login."]);
     }
 
-    $name = trim((string) ($data["name"] ?? ""));
-    $email = trim((string) ($data["email"] ?? ""));
-    $admissionNumber = trim((string) ($data["admissionNumber"] ?? ($data["admission_number"] ?? "")));
+    $name = trimLimitedString($data["name"] ?? "", 120);
+    $email = trimLimitedString($data["email"] ?? "", 150);
+    $admissionNumber = trimLimitedString($data["admissionNumber"] ?? ($data["admission_number"] ?? ""), 50);
     $role = normalizeRole(trim((string) ($data["role"] ?? "student")));
     $password = (string) ($data["password"] ?? "");
 
@@ -77,6 +77,10 @@ if ($method === "POST") {
 
     if (strlen($password) < 6) {
         respond(422, ["status" => "error", "message" => "Password must be at least 6 characters"]);
+    }
+
+    if (strlen($password) > 1024) {
+        respond(422, ["status" => "error", "message" => "Password is too long"]);
     }
 
     $admissionNumber = $admissionNumber === "" ? null : $admissionNumber;

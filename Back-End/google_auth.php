@@ -45,7 +45,7 @@ if (GOOGLE_CLIENT_ID === "") {
 }
 
 $data = readJsonBody();
-$idToken = trim((string) ($data["idToken"] ?? ""));
+$idToken = trimLimitedString($data["idToken"] ?? "", 4096);
 $role = normalizeRole(trim((string) ($data["role"] ?? "student")));
 
 if ($idToken === "") {

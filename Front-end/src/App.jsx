@@ -137,12 +137,12 @@ function App() {
   }, [activeRole, ensureProfile, loadMarks, loadStudents, loadUsers, showError, supabaseClient]);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getStoredToken();
     if (!token || user) return;
 
     apiRequest("me.php")
       .then((data) => loadSchoolData(data.user))
-      .catch(() => localStorage.removeItem("token"));
+      .catch(() => clearStoredToken());
   }, [loadSchoolData, user]);
 
   useEffect(() => {
@@ -197,7 +197,7 @@ function App() {
         },
       });
 
-      localStorage.setItem("token", data.token);
+      storeToken(data.token);
       setLoginForm({ identifier: "", password: "" });
       await loadSchoolData(data.user, activeRole);
     } catch (error) {
@@ -220,7 +220,7 @@ function App() {
         },
       });
 
-      localStorage.setItem("token", data.token);
+      storeToken(data.token);
       setRegisterForm({ name: "", email: "", admissionNumber: "", password: "" });
       setLoginForm({ identifier: data.user.email, password: "" });
       await loadSchoolData(data.user, activeRole);
@@ -341,7 +341,7 @@ function App() {
       await supabaseClient.auth.signOut();
     }
     localStorage.removeItem("pendingRole");
-    localStorage.removeItem("token");
+    clearStoredToken();
     setUser(null);
     setStudents([]);
     setMarks([]);
@@ -872,7 +872,7 @@ function normalizeMarkRecord(record) {
 }
 
 async function apiRequest(path, options = {}) {
-  const token = localStorage.getItem("token");
+  const token = getStoredToken();
   const headers = {
     Accept: "application/json",
     ...(options.body ? { "Content-Type": "application/json" } : {}),
@@ -891,6 +891,29 @@ async function apiRequest(path, options = {}) {
   }
 
   return data;
+}
+
+function storeToken(token) {
+  sessionStorage.setItem("token", token);
+  localStorage.removeItem("token");
+}
+
+function getStoredToken() {
+  const sessionToken = sessionStorage.getItem("token");
+  if (sessionToken) return sessionToken;
+
+  const legacyToken = localStorage.getItem("token");
+  if (legacyToken) {
+    sessionStorage.setItem("token", legacyToken);
+    localStorage.removeItem("token");
+  }
+
+  return legacyToken;
+}
+
+function clearStoredToken() {
+  sessionStorage.removeItem("token");
+  localStorage.removeItem("token");
 }
 
 function dashboardTitle(role) {

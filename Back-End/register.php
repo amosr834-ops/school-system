@@ -4,9 +4,9 @@ require_once "utils.php";
 require_once "auth.php";
 
 $data = readJsonBody();
-$name = trim((string) ($data["name"] ?? ""));
-$email = trim((string) ($data["email"] ?? ""));
-$admissionNumber = trim((string) ($data["admissionNumber"] ?? ($data["admission_number"] ?? "")));
+$name = trimLimitedString($data["name"] ?? "", 120);
+$email = trimLimitedString($data["email"] ?? "", 150);
+$admissionNumber = trimLimitedString($data["admissionNumber"] ?? ($data["admission_number"] ?? ""), 50);
 $role = normalizeRole(trim((string) ($data["role"] ?? "student")));
 $password = (string) ($data["password"] ?? "");
 
@@ -24,6 +24,10 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
 if (strlen($password) < 6) {
     respond(422, ["status" => "error", "message" => "Password must be at least 6 characters"]);
+}
+
+if (strlen($password) > 1024) {
+    respond(422, ["status" => "error", "message" => "Password is too long"]);
 }
 
 $hash = password_hash($password, PASSWORD_BCRYPT);

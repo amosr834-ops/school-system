@@ -37,14 +37,14 @@ function Login() {
 
       if (response.data.status === "success") {
         if (response.data.token) {
-          localStorage.setItem("token", response.data.token);
+          sessionStorage.setItem("token", response.data.token);
+          localStorage.removeItem("token");
         }
         navigate("/dashboard");
       } else {
         alert(response.data.message);
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       alert("Server error");
     }
   };

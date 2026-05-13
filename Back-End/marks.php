@@ -95,7 +95,7 @@ if ($method === "POST") {
 
     $data = readJsonBody();
     $studentId = (int) ($data["studentId"] ?? 0);
-    $subject = trim((string) ($data["subject"] ?? ""));
+    $subject = trimLimitedString($data["subject"] ?? "", 120);
     $marks = (float) ($data["marks"] ?? -1);
 
     if ($studentId < 1 || $subject === "" || $marks < 0 || $marks > 100) {

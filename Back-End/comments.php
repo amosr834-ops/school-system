@@ -45,7 +45,7 @@ if ($method === "GET") {
 if ($method === "POST") {
     $data = readJsonBody();
     $taskId = (int) ($data["taskId"] ?? 0);
-    $body = trim((string) ($data["body"] ?? ""));
+    $body = trimLimitedString($data["body"] ?? "", 5000);
 
     if ($taskId < 1 || $body === "") {
         respond(422, ["status" => "error", "message" => "taskId and body are required"]);

@@ -28,10 +28,10 @@ if ($method === "GET") {
 
 if ($method === "POST") {
     $data = readJsonBody();
-    $action = (string) ($data["action"] ?? "create");
+    $action = trimLimitedString($data["action"] ?? "create", 40);
 
     if ($action === "create") {
-        $name = trim((string) ($data["name"] ?? ""));
+        $name = trimLimitedString($data["name"] ?? "", 150);
         if ($name === "") {
             respond(422, ["status" => "error", "message" => "Team name is required"]);
         }
@@ -51,9 +51,13 @@ if ($method === "POST") {
 
     if ($action === "add_member") {
         $teamId = (int) ($data["teamId"] ?? 0);
-        $email = trim((string) ($data["email"] ?? ""));
+        $email = trimLimitedString($data["email"] ?? "", 150);
         if ($teamId < 1 || $email === "") {
             respond(422, ["status" => "error", "message" => "teamId and member email are required"]);
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            respond(422, ["status" => "error", "message" => "Member email is invalid"]);
         }
 
         $ownerCheck = $conn->prepare("SELECT id FROM teams WHERE id = ? AND owner_id = ?");

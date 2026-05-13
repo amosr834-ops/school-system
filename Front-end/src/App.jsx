@@ -280,12 +280,37 @@ function App() {
     return (
       <main className="auth-page">
         <section className="brand-panel">
-          <img src="/Logo.png" alt="Elimu School" />
-          <h1>Elimu School Management System</h1>
-          <p>{selectedRole.helper}</p>
+          <div className="brand-content">
+            <div className="brand-mark">
+              <img src="/Logo.png" alt="Elimu School" />
+              <span>Elimu School</span>
+            </div>
+            <h1>School management made clear and dependable.</h1>
+            <p>{selectedRole.helper}</p>
+            <div className="brand-stats" aria-label="School platform highlights">
+              <span>
+                <strong>3</strong>
+                Portals
+              </span>
+              <span>
+                <strong>24/7</strong>
+                Access
+              </span>
+              <span>
+                <strong>100%</strong>
+                Secure
+              </span>
+            </div>
+          </div>
         </section>
 
         <section className="auth-panel">
+          <div className="auth-heading">
+            <p className="eyebrow">Welcome back</p>
+            <h2>{authMode === "login" ? `${selectedRole.label} Login` : authMode === "register" ? `Create ${selectedRole.label} Account` : `Reset ${selectedRole.label} Password`}</h2>
+            <p>{selectedRole.helper}</p>
+          </div>
+
           <div className="role-tabs" aria-label="Login role">
             {roles.map((role) => (
               <button
@@ -294,7 +319,7 @@ function App() {
                 className={activeRole === role.id ? "active" : ""}
                 onClick={() => setActiveRole(role.id)}
               >
-                {role.label}
+                <span>{role.label}</span>
               </button>
             ))}
           </div>
@@ -313,7 +338,6 @@ function App() {
 
           {authMode === "login" ? (
             <form onSubmit={handleLogin} className="stack">
-              <h2>{selectedRole.label} Login</h2>
               <label htmlFor="identifier">{activeRole === "student" ? "Admission number or email" : "Email"}</label>
               <input
                 id="identifier"
@@ -334,7 +358,6 @@ function App() {
             </form>
           ) : authMode === "register" ? (
             <form onSubmit={handleRegister} className="stack">
-              <h2>Create {selectedRole.label} Account</h2>
               <label htmlFor="registerName">Full name</label>
               <input
                 id="registerName"
@@ -376,7 +399,6 @@ function App() {
             </form>
           ) : (
             <form onSubmit={handleReset} className="stack">
-              <h2>Reset {selectedRole.label} Password</h2>
               <label htmlFor="resetIdentifier">{activeRole === "student" ? "Admission number or email" : "Email"}</label>
               <input
                 id="resetIdentifier"
@@ -406,29 +428,37 @@ function App() {
   return (
     <main className="dashboard">
       <header className="topbar">
-        <div>
+        <div className="topbar-copy">
+          <div className="dashboard-brand">
+            <img src="/Logo.png" alt="Elimu School" />
+            <span>Elimu School</span>
+          </div>
           <p className="eyebrow">{user.role}</p>
           <h1>{dashboardTitle(user.role)}</h1>
-          <p>
-            {user.name} | {user.email}
-            {user.admission_number ? ` | Adm: ${user.admission_number}` : ""}
-          </p>
+          <div className="user-meta">
+            <span>{user.name}</span>
+            <span>{user.email}</span>
+            {user.admission_number && <span>Adm: {user.admission_number}</span>}
+          </div>
         </div>
-        <button type="button" onClick={logout}>Logout</button>
+        <button type="button" className="secondary-action" onClick={logout}>Logout</button>
       </header>
 
       {message && <p className="notice">{message}</p>}
 
       <section className="summary-grid">
         <article>
+          <span className="card-label">{canManageMarks ? "Learners" : "Progress"}</span>
           <strong>{trackedCount}</strong>
           <span>{canManageMarks ? "Students tracked" : "Subjects graded"}</span>
         </article>
         <article>
+          <span className="card-label">Records</span>
           <strong>{marks.length}</strong>
           <span>Total mark records</span>
         </article>
         <article>
+          <span className="card-label">Performance</span>
           <strong>{averageMark}</strong>
           <span>Average marks</span>
         </article>
@@ -436,8 +466,11 @@ function App() {
 
       {canManageMarks && (
         <section className="panel two-column">
-          <div>
-            <h2>Enter Marks</h2>
+          <div className="form-panel">
+            <div className="panel-heading">
+              <p className="eyebrow">Assessment</p>
+              <h2>Enter Marks</h2>
+            </div>
             <form onSubmit={saveMarks} className="stack">
               <label htmlFor="studentId">Student</label>
               <select
@@ -475,19 +508,31 @@ function App() {
             </form>
           </div>
 
-          <div>
-            <h2>{user.role === "admin" ? "Admin View" : "Lecturer View"}</h2>
+          <aside className="guidance-card">
+            <p className="eyebrow">{user.role === "admin" ? "Admin View" : "Lecturer View"}</p>
+            <h2>{user.role === "admin" ? "Whole-school oversight" : "Class progress"}</h2>
             <p className="muted">
               {user.role === "admin"
                 ? "Admins can review all student marks and overall performance."
                 : "Lecturers can enter marks; grades are calculated automatically."}
             </p>
-          </div>
+            <div className="guidance-list">
+              <span>Grades update after each saved mark.</span>
+              <span>Tables stay readable across smaller screens.</span>
+              <span>Performance summaries remain visible at the top.</span>
+            </div>
+          </aside>
         </section>
       )}
 
       <section className="panel">
-        <h2>{canManageMarks ? "All Student Grades" : "My Grades"}</h2>
+        <div className="panel-heading table-heading">
+          <div>
+            <p className="eyebrow">Gradebook</p>
+            <h2>{canManageMarks ? "All Student Grades" : "My Grades"}</h2>
+          </div>
+          <span className="record-count">{marks.length} records</span>
+        </div>
         <div className="table-wrap">
           <table>
             <thead>
@@ -518,7 +563,9 @@ function App() {
               ))}
               {marks.length === 0 && (
                 <tr>
-                  <td colSpan={canManageMarks ? 6 : 5}>No marks recorded yet.</td>
+                  <td className="empty-state" colSpan={canManageMarks ? 6 : 5}>
+                    No marks recorded yet.
+                  </td>
                 </tr>
               )}
             </tbody>
